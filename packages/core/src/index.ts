@@ -98,5 +98,27 @@ export type { SkillFileSystem } from "./metaclaw/skill-manager.js";
 export { processFeedback } from "./metaclaw/feedback.js";
 export type { LearningSignal } from "./metaclaw/feedback.js";
 
+// L5: Memory & Learning
+export type {
+  WorldSnapshot,
+  DecisionRecord,
+  DecisionOutcome,
+  Pattern,
+  PatternCondition,
+  LearningUpdate,
+} from "./memory/types.js";
+export { DecisionStore } from "./memory/decision-store.js";
+export { PatternMemory } from "./memory/pattern.js";
+export { learnFromOutcome, analyzeDecisionHistory } from "./memory/learning.js";
+
+// L6: Decision Loop Controller
+export { DecisionLoopController } from "./loop/controller.js";
+export type {
+  ControllerMode,
+  ControllerConfig,
+  Alert,
+  ControllerAction,
+} from "./loop/controller.js";
+
 // Utils
 export { generateId } from "./utils/id.js";

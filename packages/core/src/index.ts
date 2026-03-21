@@ -73,5 +73,28 @@ export type {
 export { simulateStrategy } from "./simulation/simulator.js";
 export { compareStrategies, simulateAll } from "./simulation/comparator.js";
 
+// L4: LLM Strategy Generator
+export { generateStrategiesWithLLM } from "./simulation/llm-generator.js";
+
+// LLM Client
+export { LLMClient, createLLMClientFromEnv } from "./llm/client.js";
+export type { LLMConfig, LLMMessage, LLMResponse } from "./llm/client.js";
+export { serializeWorldForLLM, serializeObjectiveForLLM } from "./llm/world-serializer.js";
+export { LLMPredictionModel } from "./prediction/models/llm.js";
+
+// MetaClaw Integration
+export type {
+  MetaClawSkill,
+  DCASMetadata,
+  MetaClawFeedback,
+  SkillIndex,
+  SkillIndexEntry,
+} from "./metaclaw/types.js";
+export { translateToSkill, validateSkill } from "./metaclaw/translator.js";
+export { SkillManager } from "./metaclaw/skill-manager.js";
+export type { SkillFileSystem } from "./metaclaw/skill-manager.js";
+export { processFeedback } from "./metaclaw/feedback.js";
+export type { LearningSignal } from "./metaclaw/feedback.js";
+
 // Utils
 export { generateId } from "./utils/id.js";

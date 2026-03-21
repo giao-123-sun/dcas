@@ -59,6 +59,8 @@ export { HeuristicModel } from "./prediction/models/heuristic.js";
 export type { HeuristicRule } from "./prediction/models/heuristic.js";
 export { StatisticalModel } from "./prediction/models/statistical.js";
 export type { Feature } from "./prediction/models/statistical.js";
+export { GradientBoostModel } from "./prediction/models/gradient-boost.js";
+export type { GBFeature, TrainingSample, GradientBoostConfig } from "./prediction/models/gradient-boost.js";
 
 // L4: Simulation & Strategy
 export type {

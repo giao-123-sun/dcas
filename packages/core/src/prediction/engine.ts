@@ -1,0 +1,111 @@
+// ============================================================
+// DCAS L3: Prediction Engine — orchestrates multiple models
+// ============================================================
+
+import type { WorldGraph } from "../world-model/graph.js";
+import type {
+  EnsemblePrediction,
+  PredictionAction,
+  PredictionModel,
+  ProbabilityDistribution,
+} from "./types.js";
+import { ensembleDistributions } from "./distribution.js";
+
+export class PredictionEngine {
+  private models = new Map<string, PredictionModel>();
+
+  registerModel(model: PredictionModel): void {
+    this.models.set(model.id, model);
+  }
+
+  removeModel(id: string): boolean {
+    return this.models.delete(id);
+  }
+
+  getModel(id: string): PredictionModel | undefined {
+    return this.models.get(id);
+  }
+
+  /**
+   * Get all models that predict a specific property.
+   */
+  getModelsForProperty(targetProperty: string): PredictionModel[] {
+    return [...this.models.values()].filter(
+      (m) => m.targetProperty === targetProperty,
+    );
+  }
+
+  /**
+   * Single-model prediction.
+   */
+  predict(
+    modelId: string,
+    world: WorldGraph,
+    targetProperty: string,
+    action?: PredictionAction,
+  ): ProbabilityDistribution {
+    const model = this.models.get(modelId);
+    if (!model) {
+      throw new Error(`Model ${modelId} not found`);
+    }
+    return model.predict({ world, targetProperty, action });
+  }
+
+  /**
+   * Ensemble prediction: run all models for a target property,
+   * combine results weighted by accuracy/confidence.
+   */
+  ensemble(
+    world: WorldGraph,
+    targetProperty: string,
+    action?: PredictionAction,
+  ): EnsemblePrediction {
+    const models = this.getModelsForProperty(targetProperty);
+    if (models.length === 0) {
+      throw new Error(`No models registered for property: ${targetProperty}`);
+    }
+
+    const individual = models.map((m) =>
+      m.predict({ world, targetProperty, action }),
+    );
+
+    const combined = ensembleDistributions(individual);
+
+    return {
+      combined,
+      individual,
+      modelIds: models.map((m) => m.id),
+    };
+  }
+
+  /**
+   * Predict multiple properties at once.
+   */
+  predictAll(
+    world: WorldGraph,
+    targetProperties: string[],
+    action?: PredictionAction,
+  ): Map<string, EnsemblePrediction> {
+    const results = new Map<string, EnsemblePrediction>();
+    for (const prop of targetProperties) {
+      const models = this.getModelsForProperty(prop);
+      if (models.length === 0) continue;
+      results.set(prop, this.ensemble(world, prop, action));
+    }
+    return results;
+  }
+
+  /**
+   * Recalibrate a model's accuracy based on observed deviation.
+   * Called by L5 Memory & Learning when actual outcomes arrive.
+   */
+  recalibrate(modelId: string, observedDeviation: number): void {
+    const model = this.models.get(modelId);
+    if (!model) return;
+
+    // Simple exponential moving average of accuracy
+    const error = Math.min(Math.abs(observedDeviation), 1);
+    const newAccuracy = 1 - error;
+    model.accuracy = model.accuracy * 0.8 + newAccuracy * 0.2;
+  }
+}

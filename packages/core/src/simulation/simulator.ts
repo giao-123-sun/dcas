@@ -22,14 +22,14 @@ import { DEFAULT_CONFIG } from "../config.js";
  * 5. Evaluate objective at the end
  * 6. Compute risk profile from predictions
  */
-export function simulateStrategy(
+export async function simulateStrategy(
   world: WorldGraph,
   strategy: Strategy,
   objective: ObjectiveSpec,
   predictionEngine?: PredictionEngine,
   predictProperties?: string[],
   config?: DCASConfig,
-): SimulationResult {
+): Promise<SimulationResult> {
   const fork = forkGraph(world, strategy.name);
   const allDiffs: PropertyDiff[] = [];
   const stepPredictions: Map<string, ProbabilityDistribution>[] = [];
@@ -76,7 +76,7 @@ export function simulateStrategy(
 
     // Run predictions if engine available
     if (predictionEngine && predictProperties && predictProperties.length > 0) {
-      const preds = predictionEngine.predictAll(fork, predictProperties);
+      const preds = await predictionEngine.predictAll(fork, predictProperties);
       stepPredictions.push(preds.get(predictProperties[0])
         ? new Map([...preds].map(([k, v]) => [k, v.combined]))
         : new Map(),

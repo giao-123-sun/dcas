@@ -45,12 +45,12 @@ export class PredictionEngine {
   /**
    * Single-model prediction.
    */
-  predict(
+  async predict(
     modelId: string,
     world: WorldGraph,
     targetProperty: string,
     action?: PredictionAction,
-  ): ProbabilityDistribution {
+  ): Promise<ProbabilityDistribution> {
     const model = this.models.get(modelId);
     if (!model) {
       throw new Error(`Model ${modelId} not found`);
@@ -62,18 +62,18 @@ export class PredictionEngine {
    * Ensemble prediction: run all models for a target property,
    * combine results weighted by accuracy/confidence.
    */
-  ensemble(
+  async ensemble(
     world: WorldGraph,
     targetProperty: string,
     action?: PredictionAction,
-  ): EnsemblePrediction {
+  ): Promise<EnsemblePrediction> {
     const models = this.getModelsForProperty(targetProperty);
     if (models.length === 0) {
       throw new Error(`No models registered for property: ${targetProperty}`);
     }
 
-    const individual = models.map((m) =>
-      m.predict({ world, targetProperty, action }),
+    const individual = await Promise.all(
+      models.map((m) => m.predict({ world, targetProperty, action })),
     );
 
     const combined = ensembleDistributions(individual);
@@ -88,16 +88,16 @@ export class PredictionEngine {
   /**
    * Predict multiple properties at once.
    */
-  predictAll(
+  async predictAll(
     world: WorldGraph,
     targetProperties: string[],
     action?: PredictionAction,
-  ): Map<string, EnsemblePrediction> {
+  ): Promise<Map<string, EnsemblePrediction>> {
     const results = new Map<string, EnsemblePrediction>();
     for (const prop of targetProperties) {
       const models = this.getModelsForProperty(prop);
       if (models.length === 0) continue;
-      results.set(prop, this.ensemble(world, prop, action));
+      results.set(prop, await this.ensemble(world, prop, action));
     }
     return results;
   }

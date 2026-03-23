@@ -44,7 +44,7 @@ describe("GradientBoostModel", () => {
     expect(() => model.train()).toThrow("at least 5");
   });
 
-  it("should train and predict", () => {
+  it("should train and predict", async () => {
     const model = new GradientBoostModel(
       "gb_recovery",
       "expected_recovery",
@@ -68,7 +68,7 @@ describe("GradientBoostModel", () => {
     g.addEntity("Case", { evidence_strength: 8, amount: 80000 });
     g.addEntity("Judge", { pro_labor_rate: 0.75 });
 
-    const pred = model.predict({ world: g, targetProperty: "expected_recovery" });
+    const pred = await model.predict({ world: g, targetProperty: "expected_recovery" });
 
     // High evidence (8) + high judge tendency (0.75) + 80k amount
     // Expected: 80000 * (0.3 + 0.5*0.75) + bonus ≈ 52000 + 12000 = 64000
@@ -79,13 +79,13 @@ describe("GradientBoostModel", () => {
     expect(pred.modelId).toBe("gb_recovery");
   });
 
-  it("should return high-uncertainty when not trained", () => {
+  it("should return high-uncertainty when not trained", async () => {
     const model = new GradientBoostModel("untrained", "value", [
       { name: "x", extract: () => 0 },
     ]);
 
     const g = new WorldGraph();
-    const pred = model.predict({ world: g, targetProperty: "value" });
+    const pred = await model.predict({ world: g, targetProperty: "value" });
 
     expect(pred.confidence).toBe(0.1); // low confidence fallback
     expect(pred.std).toBe(10000);
@@ -119,7 +119,7 @@ describe("GradientBoostModel", () => {
     expect(amountImp).toBeGreaterThan(0);
   });
 
-  it("should work in ensemble with other models", () => {
+  it("should work in ensemble with other models", async () => {
     const engine = new PredictionEngine();
 
     // Heuristic model
@@ -150,7 +150,7 @@ describe("GradientBoostModel", () => {
     g.addEntity("Case", { evidence_strength: 7, amount: 80000 });
     g.addEntity("Judge", { pro_labor_rate: 0.6 });
 
-    const result = engine.ensemble(g, "recovery");
+    const result = await engine.ensemble(g, "recovery");
 
     expect(result.modelIds).toContain("heuristic");
     expect(result.modelIds).toContain("gb_model");

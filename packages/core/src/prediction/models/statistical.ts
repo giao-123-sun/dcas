@@ -40,7 +40,7 @@ export class StatisticalModel implements PredictionModel {
     }
   }
 
-  predict(context: PredictionContext): ProbabilityDistribution {
+  async predict(context: PredictionContext): Promise<ProbabilityDistribution> {
     const values = this.features.map((f) => f.extract(context.world));
     const mean =
       this.intercept +

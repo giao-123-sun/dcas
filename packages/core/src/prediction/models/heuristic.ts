@@ -33,7 +33,7 @@ export class HeuristicModel implements PredictionModel {
     private fallback: { mean: number; std: number; confidence: number },
   ) {}
 
-  predict(context: PredictionContext): ProbabilityDistribution {
+  async predict(context: PredictionContext): Promise<ProbabilityDistribution> {
     for (const rule of this.rules) {
       if (rule.condition(context)) {
         const { mean, std, confidence } = rule.predict(context);

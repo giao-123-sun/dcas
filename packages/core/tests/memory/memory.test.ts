@@ -49,12 +49,12 @@ function buildStrategy(caseId: string): Strategy {
 }
 
 describe("DecisionStore", () => {
-  it("should record and retrieve decisions", () => {
+  it("should record and retrieve decisions", async () => {
     const store = new DecisionStore();
     const { g, caseE } = buildWorld();
     const objective = buildObjective();
     const strategy = buildStrategy(caseE.id);
-    const rankings = compareStrategies(g, [strategy], objective);
+    const rankings = await compareStrategies(g, [strategy], objective);
     const objResult = evaluateObjective(objective, g);
 
     const record = store.recordDecision({
@@ -72,11 +72,11 @@ describe("DecisionStore", () => {
     expect(record.chosenStrategyId).toBe("settlement");
   });
 
-  it("should record outcome post-hoc", () => {
+  it("should record outcome post-hoc", async () => {
     const store = new DecisionStore();
     const { g, caseE } = buildWorld();
     const objective = buildObjective();
-    const rankings = compareStrategies(g, [buildStrategy(caseE.id)], objective);
+    const rankings = await compareStrategies(g, [buildStrategy(caseE.id)], objective);
 
     const record = store.recordDecision({
       world: g, rankings, chosenStrategyId: "settlement",
@@ -96,11 +96,11 @@ describe("DecisionStore", () => {
     expect(store.outcomeCount).toBe(1);
   });
 
-  it("should query by strategy", () => {
+  it("should query by strategy", async () => {
     const store = new DecisionStore();
     const { g, caseE } = buildWorld();
     const objective = buildObjective();
-    const rankings = compareStrategies(g, [buildStrategy(caseE.id)], objective);
+    const rankings = await compareStrategies(g, [buildStrategy(caseE.id)], objective);
     const objResult = evaluateObjective(objective, g);
 
     store.recordDecision({ world: g, rankings, chosenStrategyId: "settlement", chosenBy: "human", reasonForChoice: "", objectiveResult: objResult });
@@ -111,11 +111,11 @@ describe("DecisionStore", () => {
     expect(store.getByStrategy("defense")).toHaveLength(1);
   });
 
-  it("should get recent decisions", () => {
+  it("should get recent decisions", async () => {
     const store = new DecisionStore();
     const { g, caseE } = buildWorld();
     const objective = buildObjective();
-    const rankings = compareStrategies(g, [buildStrategy(caseE.id)], objective);
+    const rankings = await compareStrategies(g, [buildStrategy(caseE.id)], objective);
     const objResult = evaluateObjective(objective, g);
 
     for (let i = 0; i < 5; i++) {

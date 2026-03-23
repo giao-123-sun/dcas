@@ -119,8 +119,8 @@ describe("Strategy-to-Skill Translator", () => {
     const objective = buildObjective();
     const strategy = buildStrategy(caseE.id);
 
-    const simulation = simulateStrategy(g, strategy, objective);
-    const ranked = compareStrategies(g, [strategy], objective);
+    const simulation = await simulateStrategy(g, strategy, objective);
+    const ranked = await compareStrategies(g, [strategy], objective);
 
     const skill = await translateToSkill({
       simulation,
@@ -146,8 +146,8 @@ describe("Strategy-to-Skill Translator", () => {
     const objective = buildObjective();
     const strategy = buildStrategy(caseE.id);
 
-    const simulation = simulateStrategy(g, strategy, objective);
-    const ranked = compareStrategies(g, [strategy], objective);
+    const simulation = await simulateStrategy(g, strategy, objective);
+    const ranked = await compareStrategies(g, [strategy], objective);
 
     const skill = await translateToSkill({
       simulation,
@@ -171,17 +171,17 @@ describe("Strategy-to-Skill Translator", () => {
       { ...buildStrategy(caseE.id), id: "jurisdiction", name: "异议" },
     ];
 
-    const ranked = compareStrategies(g, strategies, objective);
+    const ranked = await compareStrategies(g, strategies, objective);
 
     const skill1 = await translateToSkill({
-      simulation: simulateStrategy(g, strategies[0], objective),
+      simulation: await simulateStrategy(g, strategies[0], objective),
       ranking: ranked.rankings[0],
       objective, world: g, domainContext: "",
     });
     expect(skill1.priority).toBe("high");
 
     const skill3 = await translateToSkill({
-      simulation: simulateStrategy(g, strategies[2], objective),
+      simulation: await simulateStrategy(g, strategies[2], objective),
       ranking: ranked.rankings[2],
       objective, world: g, domainContext: "",
     });

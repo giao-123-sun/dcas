@@ -111,7 +111,7 @@ export class DecisionLoopController {
   /**
    * Run one decision cycle: check KPIs → generate strategies → simulate → decide.
    */
-  runCycle(): ControllerAction | null {
+  async runCycle(): Promise<ControllerAction | null> {
     const alerts = this.checkKPIs();
 
     if (alerts.length === 0 && this.config.mode !== "reactive") {
@@ -123,7 +123,7 @@ export class DecisionLoopController {
     if (strategies.length === 0) return null;
 
     // Simulate and rank
-    const rankings = compareStrategies(
+    const rankings = await compareStrategies(
       this.world,
       strategies,
       this.objective,
@@ -174,7 +174,7 @@ export class DecisionLoopController {
 
     if (this.config.mode !== "reactive") {
       this.timer = setInterval(() => {
-        this.runCycle();
+        void this.runCycle();
       }, this.config.checkIntervalMs);
     }
   }

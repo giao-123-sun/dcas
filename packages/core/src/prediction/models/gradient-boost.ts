@@ -118,7 +118,7 @@ export class GradientBoostModel implements PredictionModel {
    * Returns a ProbabilityDistribution with uncertainty estimated
    * from individual tree predictions.
    */
-  predict(context: PredictionContext): ProbabilityDistribution {
+  async predict(context: PredictionContext): Promise<ProbabilityDistribution> {
     if (!this.model) {
       // Not trained yet — return high-uncertainty fallback
       return normalDistribution(0, 10000, 0.1, this.id);

@@ -4,6 +4,7 @@ import { PredictionEngine } from "../../src/prediction/engine.js";
 import { HeuristicModel } from "../../src/prediction/models/heuristic.js";
 import { StatisticalModel } from "../../src/prediction/models/statistical.js";
 import { GradientBoostModel } from "../../src/prediction/models/gradient-boost.js";
+import type { PredictionModel } from "../../src/prediction/types.js";
 import {
   normalDistribution,
   skewedDistribution,
@@ -63,7 +64,7 @@ describe("ProbabilityDistribution", () => {
 });
 
 describe("HeuristicModel", () => {
-  it("should match rules in order and return prediction", () => {
+  it("should match rules in order and return prediction", async () => {
     const model = new HeuristicModel(
       "legal_recovery",
       "expected_recovery",
@@ -91,17 +92,17 @@ describe("HeuristicModel", () => {
     // Strong evidence
     const g1 = new WorldGraph();
     g1.addEntity("Case", { evidence_strength: 8.5 });
-    const pred1 = model.predict({ world: g1, targetProperty: "expected_recovery" });
+    const pred1 = await model.predict({ world: g1, targetProperty: "expected_recovery" });
     expect(pred1.mean).toBe(75000);
 
     // Weak evidence
     const g2 = new WorldGraph();
     g2.addEntity("Case", { evidence_strength: 5 });
-    const pred2 = model.predict({ world: g2, targetProperty: "expected_recovery" });
+    const pred2 = await model.predict({ world: g2, targetProperty: "expected_recovery" });
     expect(pred2.mean).toBe(45000);
   });
 
-  it("should use fallback when no rule matches", () => {
+  it("should use fallback when no rule matches", async () => {
     const model = new HeuristicModel(
       "test",
       "value",
@@ -116,14 +117,14 @@ describe("HeuristicModel", () => {
     );
 
     const g = new WorldGraph();
-    const pred = model.predict({ world: g, targetProperty: "value" });
+    const pred = await model.predict({ world: g, targetProperty: "value" });
     expect(pred.mean).toBe(42);
     expect(pred.confidence).toBe(0.3);
   });
 });
 
 describe("StatisticalModel", () => {
-  it("should compute linear prediction", () => {
+  it("should compute linear prediction", async () => {
     const model = new StatisticalModel(
       "recovery_regression",
       "expected_recovery",
@@ -150,7 +151,7 @@ describe("StatisticalModel", () => {
 
     const g = new WorldGraph();
     g.addEntity("Case", { evidence_strength: 7, amount: 80000 });
-    const pred = model.predict({ world: g, targetProperty: "expected_recovery" });
+    const pred = await model.predict({ world: g, targetProperty: "expected_recovery" });
 
     // 10000 + 5000*7 + 0.6*80000 = 10000 + 35000 + 48000 = 93000
     expect(pred.mean).toBeCloseTo(93000, 0);
@@ -173,7 +174,7 @@ describe("StatisticalModel", () => {
 });
 
 describe("PredictionEngine", () => {
-  it("should register and use models", () => {
+  it("should register and use models", async () => {
     const engine = new PredictionEngine();
     const model = new HeuristicModel(
       "test_model",
@@ -184,11 +185,11 @@ describe("PredictionEngine", () => {
     engine.registerModel(model);
 
     const g = new WorldGraph();
-    const pred = engine.predict("test_model", g, "recovery");
+    const pred = await engine.predict("test_model", g, "recovery");
     expect(pred.mean).toBe(50000);
   });
 
-  it("should ensemble multiple models for same property", () => {
+  it("should ensemble multiple models for same property", async () => {
     const engine = new PredictionEngine();
 
     engine.registerModel(
@@ -199,7 +200,7 @@ describe("PredictionEngine", () => {
     );
 
     const g = new WorldGraph();
-    const result = engine.ensemble(g, "recovery");
+    const result = await engine.ensemble(g, "recovery");
 
     expect(result.modelIds).toHaveLength(2);
     expect(result.individual).toHaveLength(2);
@@ -207,10 +208,10 @@ describe("PredictionEngine", () => {
     expect(result.combined.mean).toBeLessThan(70000);
   });
 
-  it("should throw when no models for property", () => {
+  it("should throw when no models for property", async () => {
     const engine = new PredictionEngine();
     const g = new WorldGraph();
-    expect(() => engine.ensemble(g, "nonexistent")).toThrow();
+    await expect(engine.ensemble(g, "nonexistent")).rejects.toThrow();
   });
 
   it("should recalibrate model accuracy", () => {
@@ -241,7 +242,7 @@ describe("PredictionEngine", () => {
     expect(models.map(m => m.type).sort()).toEqual(["gradient_boost", "statistical"]);
   });
 
-  it("should predict multiple properties", () => {
+  it("should predict multiple properties", async () => {
     const engine = new PredictionEngine();
     engine.registerModel(
       new HeuristicModel("m1", "recovery", [], { mean: 60000, std: 5000, confidence: 0.7 }),
@@ -251,11 +252,37 @@ describe("PredictionEngine", () => {
     );
 
     const g = new WorldGraph();
-    const results = engine.predictAll(g, ["recovery", "cost", "nonexistent"]);
+    const results = await engine.predictAll(g, ["recovery", "cost", "nonexistent"]);
 
     expect(results.size).toBe(2);
     expect(results.get("recovery")!.combined.mean).toBe(60000);
     expect(results.get("cost")!.combined.mean).toBe(20000);
     expect(results.has("nonexistent")).toBe(false);
+  });
+
+  it("should include async LLM model in ensemble", async () => {
+    const engine = new PredictionEngine();
+
+    // Mock LLM model that returns a known value
+    const mockLLM: PredictionModel = {
+      id: "mock_llm",
+      type: "llm",
+      targetProperty: "recovery",
+      accuracy: 0.7,
+      async predict() {
+        return normalDistribution(70000, 5000, 0.7, "mock_llm");
+      },
+    };
+
+    engine.registerModel(new HeuristicModel("h1", "recovery", [], { mean: 50000, std: 5000, confidence: 0.8 }));
+    engine.registerModel(mockLLM);
+
+    const g = new WorldGraph();
+    const result = await engine.ensemble(g, "recovery");
+
+    expect(result.combined.mean).toBeGreaterThan(50000);
+    expect(result.combined.mean).toBeLessThan(70000);
+    expect(result.modelIds).toContain("mock_llm");
+    expect(result.modelIds).toContain("h1");
   });
 });

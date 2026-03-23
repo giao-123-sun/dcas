@@ -147,12 +147,12 @@ function buildStrategies(caseId: string): Strategy[] {
 // ============================================================
 
 describe("simulateStrategy", () => {
-  it("should apply actions and return diffs", () => {
+  it("should apply actions and return diffs", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
     const strategy = buildStrategies(caseE.id)[0]; // settlement
 
-    const result = simulateStrategy(g, strategy, objective);
+    const result = await simulateStrategy(g, strategy, objective);
 
     expect(result.strategyId).toBe("settlement");
     expect(result.diffs.length).toBeGreaterThan(0);
@@ -162,36 +162,36 @@ describe("simulateStrategy", () => {
     expect(result.forkedWorld.getEntity(caseE.id)!.properties.strategy).toBe("settlement");
   });
 
-  it("should evaluate objective after simulation", () => {
+  it("should evaluate objective after simulation", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
     const strategy = buildStrategies(caseE.id)[0];
 
-    const result = simulateStrategy(g, strategy, objective);
+    const result = await simulateStrategy(g, strategy, objective);
 
     expect(result.objectiveResult.score).toBeGreaterThan(0);
     expect(result.objectiveResult.hardViolation).toBe(false);
     expect(result.objectiveResult.kpiResults).toHaveLength(3);
   });
 
-  it("should trigger cascade during simulation", () => {
+  it("should trigger cascade during simulation", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
     const strategy = buildStrategies(caseE.id)[0]; // settlement, cost=10000
 
-    const result = simulateStrategy(g, strategy, objective);
+    const result = await simulateStrategy(g, strategy, objective);
 
     // Budget.allocated should cascade from expected_cost
     const budget = result.forkedWorld.getEntitiesByType("Budget")[0];
     expect(budget.properties.allocated).toBe(10000);
   });
 
-  it("should produce reasoning chain", () => {
+  it("should produce reasoning chain", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
     const strategy = buildStrategies(caseE.id)[0];
 
-    const result = simulateStrategy(g, strategy, objective);
+    const result = await simulateStrategy(g, strategy, objective);
 
     expect(result.reasoningChain.length).toBeGreaterThan(0);
     expect(result.reasoningChain[0]).toContain("和解谈判");
@@ -200,19 +200,19 @@ describe("simulateStrategy", () => {
     expect(last).toContain("最终得分");
   });
 
-  it("should produce risk profile", () => {
+  it("should produce risk profile", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
     const strategy = buildStrategies(caseE.id)[0];
 
-    const result = simulateStrategy(g, strategy, objective);
+    const result = await simulateStrategy(g, strategy, objective);
 
     expect(result.riskProfile.expectedCase).toBeGreaterThan(0);
     expect(result.riskProfile.bestCase).toBeGreaterThanOrEqual(result.riskProfile.expectedCase);
     expect(result.riskProfile.worstCase).toBeLessThanOrEqual(result.riskProfile.expectedCase);
   });
 
-  it("should handle conditional actions", () => {
+  it("should handle conditional actions", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
 
@@ -242,13 +242,13 @@ describe("simulateStrategy", () => {
       ],
     };
 
-    const result = simulateStrategy(g, strategy, objective);
+    const result = await simulateStrategy(g, strategy, objective);
     const forkedCase = result.forkedWorld.getEntity(caseE.id)!;
     expect(forkedCase.properties.duration_months).toBe(1);
     expect(result.reasoningChain.some((r) => r.includes("条件触发"))).toBe(true);
   });
 
-  it("should work with prediction engine", () => {
+  it("should work with prediction engine", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
     const strategy = buildStrategies(caseE.id)[0];
@@ -262,7 +262,7 @@ describe("simulateStrategy", () => {
       }),
     );
 
-    const result = simulateStrategy(g, strategy, objective, engine, ["expected_recovery"]);
+    const result = await simulateStrategy(g, strategy, objective, engine, ["expected_recovery"]);
 
     // Should have step predictions
     expect(result.stepPredictions.length).toBe(strategy.actions.length);
@@ -270,12 +270,12 @@ describe("simulateStrategy", () => {
 });
 
 describe("compareStrategies", () => {
-  it("should rank strategies by objective score", () => {
+  it("should rank strategies by objective score", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
     const strategies = buildStrategies(caseE.id);
 
-    const ranked = compareStrategies(g, strategies, objective);
+    const ranked = await compareStrategies(g, strategies, objective);
 
     expect(ranked.rankings).toHaveLength(3);
     expect(ranked.rankings[0].rank).toBe(1);
@@ -287,18 +287,18 @@ describe("compareStrategies", () => {
     expect(ranked.rankings[1].score).toBeGreaterThanOrEqual(ranked.rankings[2].score);
   });
 
-  it("should rank settlement first (best composite score)", () => {
+  it("should rank settlement first (best composite score)", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
     const strategies = buildStrategies(caseE.id);
 
-    const ranked = compareStrategies(g, strategies, objective);
+    const ranked = await compareStrategies(g, strategies, objective);
 
     // Settlement: high recovery (65k), low cost (10k), fast (1mo) → should be #1
     expect(ranked.rankings[0].strategyName).toBe("和解谈判");
   });
 
-  it("should push hard-violation strategies to bottom", () => {
+  it("should push hard-violation strategies to bottom", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
 
@@ -317,19 +317,19 @@ describe("compareStrategies", () => {
       ...buildStrategies(caseE.id).slice(0, 1), // settlement
     ];
 
-    const ranked = compareStrategies(g, strategies, objective);
+    const ranked = await compareStrategies(g, strategies, objective);
 
     // Bad strategy violates hard constraint (recovery 10k < 40k = 50% of 80k)
     expect(ranked.rankings[ranked.rankings.length - 1].strategyName).toBe("极差策略");
     expect(ranked.rankings[ranked.rankings.length - 1].score).toBe(0);
   });
 
-  it("should produce reasoning for each strategy", () => {
+  it("should produce reasoning for each strategy", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
     const strategies = buildStrategies(caseE.id);
 
-    const ranked = compareStrategies(g, strategies, objective);
+    const ranked = await compareStrategies(g, strategies, objective);
 
     for (const r of ranked.rankings) {
       expect(r.reasoning.length).toBeGreaterThan(0);
@@ -338,12 +338,12 @@ describe("compareStrategies", () => {
     expect(ranked.rankings[0].reasoning).toContain("综合得分最高");
   });
 
-  it("should not modify the original world", () => {
+  it("should not modify the original world", async () => {
     const { g, caseE } = buildLegalWorld();
     const objective = buildObjective();
     const strategies = buildStrategies(caseE.id);
 
-    compareStrategies(g, strategies, objective);
+    await compareStrategies(g, strategies, objective);
 
     // Original world untouched
     expect(g.getEntity(caseE.id)!.properties.strategy).toBe("undecided");

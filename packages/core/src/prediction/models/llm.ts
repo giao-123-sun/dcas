@@ -34,19 +34,7 @@ export class LLMPredictionModel implements PredictionModel {
     private domainContext: string,
   ) {}
 
-  predict(context: PredictionContext): ProbabilityDistribution {
-    // LLM calls are async but PredictionModel.predict is sync.
-    // We cache the last prediction and provide a sync wrapper.
-    // For real use, call predictAsync() directly.
-    // Fallback: return a wide-uncertainty distribution.
-    return normalDistribution(0, 1, 0.1, this.id);
-  }
-
-  /**
-   * Async prediction — the real LLM call.
-   * Use this directly when you can await.
-   */
-  async predictAsync(context: PredictionContext): Promise<ProbabilityDistribution> {
+  async predict(context: PredictionContext): Promise<ProbabilityDistribution> {
     const worldText = serializeWorldForLLM(context.world);
     const actionText = context.action
       ? `\n假设动作: ${context.action.description} (参数: ${JSON.stringify(context.action.parameters)})`

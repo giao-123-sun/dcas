@@ -66,7 +66,7 @@ describe("DecisionLoopController", () => {
     expect(alerts[0].severity).toBe("warning");
   });
 
-  it("should run cycle and recommend when alerts exist", () => {
+  it("should run cycle and recommend when alerts exist", async () => {
     const { g, caseE } = buildWorld();
     const objective = buildObjective();
     g.updateProperty(caseE.id, "expected_recovery", 35000); // trigger alert
@@ -76,14 +76,14 @@ describe("DecisionLoopController", () => {
       { mode: "monitoring" },
     );
 
-    const action = controller.runCycle();
+    const action = await controller.runCycle();
     expect(action).not.toBeNull();
     expect(action!.type).toBe("recommend");
     expect(action!.alerts).toHaveLength(1);
     expect(action!.rankings.rankings.length).toBeGreaterThan(0);
   });
 
-  it("should return null when no alerts in monitoring mode", () => {
+  it("should return null when no alerts in monitoring mode", async () => {
     const { g, caseE } = buildWorld();
     const objective = buildObjective();
     // No KPI breaches
@@ -93,11 +93,11 @@ describe("DecisionLoopController", () => {
       { mode: "monitoring" },
     );
 
-    const action = controller.runCycle();
+    const action = await controller.runCycle();
     expect(action).toBeNull();
   });
 
-  it("should always run in reactive mode", () => {
+  it("should always run in reactive mode", async () => {
     const { g, caseE } = buildWorld();
     const objective = buildObjective();
 
@@ -107,12 +107,12 @@ describe("DecisionLoopController", () => {
     );
 
     // Even without alerts, reactive mode runs when triggered
-    const action = controller.runCycle();
+    const action = await controller.runCycle();
     expect(action).not.toBeNull();
     expect(action!.type).toBe("recommend");
   });
 
-  it("should auto-execute in autonomous mode when confidence is high", () => {
+  it("should auto-execute in autonomous mode when confidence is high", async () => {
     const { g, caseE } = buildWorld();
     const objective = buildObjective();
     g.updateProperty(caseE.id, "expected_recovery", 35000);
@@ -126,12 +126,12 @@ describe("DecisionLoopController", () => {
       },
     );
 
-    const action = controller.runCycle();
+    const action = await controller.runCycle();
     expect(action).not.toBeNull();
     expect(action!.type).toBe("auto_execute");
   });
 
-  it("should record decisions to store", () => {
+  it("should record decisions to store", async () => {
     const { g, caseE } = buildWorld();
     const objective = buildObjective();
     g.updateProperty(caseE.id, "expected_recovery", 35000);
@@ -144,7 +144,7 @@ describe("DecisionLoopController", () => {
       store,
     );
 
-    controller.runCycle();
+    await controller.runCycle();
     expect(store.count).toBe(1);
   });
 

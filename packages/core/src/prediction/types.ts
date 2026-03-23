@@ -58,7 +58,7 @@ export interface PredictionModel {
   /** Historical accuracy score [0, 1] */
   accuracy: number;
 
-  predict(context: PredictionContext): ProbabilityDistribution;
+  predict(context: PredictionContext): Promise<ProbabilityDistribution>;
 }
 
 /**

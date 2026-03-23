@@ -11,16 +11,18 @@ import { simulateStrategy } from "./simulator.js";
 /**
  * Simulate multiple strategies and rank them by objective score.
  */
-export function compareStrategies(
+export async function compareStrategies(
   world: WorldGraph,
   strategies: Strategy[],
   objective: ObjectiveSpec,
   predictionEngine?: PredictionEngine,
   predictProperties?: string[],
-): RankedStrategies {
+): Promise<RankedStrategies> {
   // Simulate all strategies from the same base world
-  const results: SimulationResult[] = strategies.map((s) =>
-    simulateStrategy(world, s, objective, predictionEngine, predictProperties),
+  const results: SimulationResult[] = await Promise.all(
+    strategies.map((s) =>
+      simulateStrategy(world, s, objective, predictionEngine, predictProperties),
+    ),
   );
 
   // Sort by objective score (descending) — hard violations go to bottom
@@ -84,14 +86,16 @@ function generateReasoning(
 /**
  * Get detailed simulation results for all strategies (not just rankings).
  */
-export function simulateAll(
+export async function simulateAll(
   world: WorldGraph,
   strategies: Strategy[],
   objective: ObjectiveSpec,
   predictionEngine?: PredictionEngine,
   predictProperties?: string[],
-): SimulationResult[] {
-  return strategies.map((s) =>
-    simulateStrategy(world, s, objective, predictionEngine, predictProperties),
+): Promise<SimulationResult[]> {
+  return Promise.all(
+    strategies.map((s) =>
+      simulateStrategy(world, s, objective, predictionEngine, predictProperties),
+    ),
   );
 }

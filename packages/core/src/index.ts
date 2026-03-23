@@ -28,6 +28,8 @@ export type {
 // World Model
 export { WorldGraph } from "./world-model/graph.js";
 export { forkGraph } from "./world-model/fork.js";
+export { EventLog } from "./world-model/event-log.js";
+export type { StateEvent } from "./world-model/event-log.js";
 export { createEntity, cloneEntity, setProperty } from "./world-model/entity.js";
 export { createRelation, cloneRelation } from "./world-model/relation.js";
 export { applyCascade } from "./world-model/cascade.js";
@@ -65,6 +67,8 @@ export { StatisticalModel } from "./prediction/models/statistical.js";
 export type { Feature } from "./prediction/models/statistical.js";
 export { GradientBoostModel } from "./prediction/models/gradient-boost.js";
 export type { GBFeature, TrainingSample, GradientBoostConfig } from "./prediction/models/gradient-boost.js";
+export { AdversaryModel } from "./prediction/models/adversary.js";
+export type { AdversaryProfile } from "./prediction/models/adversary.js";
 
 // L4: Simulation & Strategy
 export type {

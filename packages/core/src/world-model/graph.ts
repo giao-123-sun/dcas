@@ -16,6 +16,8 @@ import { createEntity } from "./entity.js";
 import { createRelation } from "./relation.js";
 import { applyCascade } from "./cascade.js";
 import { generateId } from "../utils/id.js";
+import { EventLog } from "./event-log.js";
+import type { StateEvent } from "./event-log.js";
 
 export class WorldGraph {
   // --- Storage ---
@@ -29,6 +31,9 @@ export class WorldGraph {
 
   // --- Cascade rules ---
   private cascadeRules: CascadeRule[] = [];
+
+  // --- Event log ---
+  private eventLog = new EventLog();
 
   // --- Identity ---
   readonly snapshotId: SnapshotId;
@@ -184,11 +189,39 @@ export class WorldGraph {
   // Property mutation (with cascade)
   // ============================================================
 
-  updateProperty(entityId: EntityId, key: string, value: PropertyValue): ChangeResult {
+  /**
+   * Ensure this graph owns its own copy of an entity (Copy-on-Write).
+   * If the entity's snapshotId differs from this graph's snapshotId, it was
+   * shared from a parent fork — clone only that entity before mutating.
+   *
+   * Internal use: also called by cascade.ts to protect shared references.
+   * @internal
+   */
+  _ensureEntityOwned(entityId: EntityId): Entity | undefined {
     const entity = this.entities.get(entityId);
-    if (!entity) {
-      throw new Error(`Entity ${entityId} not found`);
+    if (!entity) return undefined;
+
+    // If this entity belongs to a parent snapshot, clone it for COW
+    if (entity.meta.snapshotId !== this.snapshotId) {
+      const owned: Entity = {
+        ...entity,
+        properties: structuredClone(entity.properties),
+        meta: { ...entity.meta, snapshotId: this.snapshotId },
+      };
+      this.entities.set(entityId, owned);
+      return owned;
     }
+    return entity;
+  }
+
+  private ensureEntityOwned(entityId: EntityId): Entity {
+    const entity = this._ensureEntityOwned(entityId);
+    if (!entity) throw new Error(`Entity ${entityId} not found`);
+    return entity;
+  }
+
+  updateProperty(entityId: EntityId, key: string, value: PropertyValue): ChangeResult {
+    const entity = this.ensureEntityOwned(entityId);
 
     const oldValue = entity.properties[key] ?? null;
 
@@ -200,6 +233,16 @@ export class WorldGraph {
     // Apply direct change
     entity.properties[key] = value;
     entity.meta.updatedAt = Date.now();
+
+    // Record direct event
+    const directEvent = this.eventLog.append({
+      entityId,
+      property: key,
+      oldValue,
+      newValue: value,
+      cause: "direct",
+      branchId: this.snapshotId,
+    });
 
     const directDiff: PropertyDiff = {
       entityId,
@@ -216,6 +259,19 @@ export class WorldGraph {
       { entityId, property: key, oldValue, newValue: value },
       this.cascadeRules,
     );
+
+    // Record cascade events
+    for (const diff of cascadeDiffs) {
+      this.eventLog.append({
+        entityId: diff.entityId,
+        property: diff.property,
+        oldValue: diff.oldValue,
+        newValue: diff.newValue,
+        cause: "cascade",
+        sourceEventId: directEvent.id,
+        branchId: this.snapshotId,
+      });
+    }
 
     return {
       diffs: [directDiff, ...cascadeDiffs],
@@ -237,6 +293,53 @@ export class WorldGraph {
 
   setCascadeRules(rules: CascadeRule[]): void {
     this.cascadeRules = rules;
+  }
+
+  // ============================================================
+  // Event log access
+  // ============================================================
+
+  /** Returns the full event log for this graph. */
+  getEventLog(): EventLog {
+    return this.eventLog;
+  }
+
+  /** Returns all events recorded for the given entity. */
+  getEventsForEntity(entityId: EntityId): StateEvent[] {
+    return this.eventLog.getEventsForEntity(entityId);
+  }
+
+  // ============================================================
+  // Time travel
+  // ============================================================
+
+  /**
+   * Get the value of an entity property at a specific point in time.
+   * Replays event log to find the value at the given timestamp.
+   */
+  getPropertyAt(entityId: EntityId, property: string, timestamp: number): PropertyValue | undefined {
+    // All events for this entity+property, sorted chronologically
+    const allEvents = this.eventLog.getEventsForEntity(entityId)
+      .filter(e => e.property === property)
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    if (allEvents.length === 0) {
+      // No events ever — return current value
+      const entity = this.getEntity(entityId);
+      return entity?.properties[property];
+    }
+
+    // Find the latest event whose timestamp <= requested timestamp
+    const eventsAtOrBefore = allEvents.filter(e => e.timestamp <= timestamp);
+
+    if (eventsAtOrBefore.length > 0) {
+      // Return the newValue of the most recent applicable event
+      return eventsAtOrBefore[eventsAtOrBefore.length - 1].newValue;
+    }
+
+    // Timestamp is before any event — return the oldValue of the first event
+    // (i.e., the value the property had before any change was recorded)
+    return allEvents[0].oldValue;
   }
 
   // ============================================================

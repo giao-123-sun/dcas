@@ -58,11 +58,15 @@ export function applyCascade(
         // Skip if value unchanged
         if (old === value) continue;
 
-        target.properties[targetProperty] = value;
-        target.meta.updatedAt = Date.now();
+        // Ensure COW: if the target is a shared reference from a parent fork,
+        // clone it before mutating so the parent graph is not affected.
+        const ownedTarget = graph._ensureEntityOwned(target.id);
+        if (!ownedTarget) continue; // Entity disappeared during cascade — skip
+        ownedTarget.properties[targetProperty] = value;
+        ownedTarget.meta.updatedAt = Date.now();
 
         const diff: PropertyDiff = {
-          entityId: target.id,
+          entityId: ownedTarget.id,
           property: targetProperty,
           oldValue: old,
           newValue: value,
@@ -72,7 +76,7 @@ export function applyCascade(
         diffs.push(diff);
 
         // Recurse
-        propagate(target.id, targetProperty, old, value, depth + 1);
+        propagate(ownedTarget.id, targetProperty, old, value, depth + 1);
       }
     }
   }

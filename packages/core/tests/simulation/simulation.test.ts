@@ -4,7 +4,7 @@ import { simulateStrategy } from "../../src/simulation/simulator.js";
 import { compareStrategies } from "../../src/simulation/comparator.js";
 import { PredictionEngine } from "../../src/prediction/engine.js";
 import { HeuristicModel } from "../../src/prediction/models/heuristic.js";
-import type { Strategy } from "../../src/simulation/types.js";
+import type { Strategy, MonteCarloConfig } from "../../src/simulation/types.js";
 import type { ObjectiveSpec } from "../../src/objective/types.js";
 import type { CascadeRule } from "../../src/world-model/types.js";
 
@@ -348,5 +348,72 @@ describe("compareStrategies", () => {
     // Original world untouched
     expect(g.getEntity(caseE.id)!.properties.strategy).toBe("undecided");
     expect(g.getEntity(caseE.id)!.properties.expected_recovery).toBe(0);
+  });
+});
+
+describe("Monte Carlo simulation", () => {
+  it("same seed should produce same result", async () => {
+    const { g, caseE } = buildLegalWorld();
+    const objective = buildObjective();
+    const strategy = buildStrategies(caseE.id)[0];
+    const engine = new PredictionEngine();
+    engine.registerModel(new HeuristicModel("h", "expected_recovery", [], { mean: 65000, std: 8000, confidence: 0.7 }));
+
+    const r1 = await simulateStrategy(g, strategy, objective, engine, ["expected_recovery"], { runs: 50, seed: 42, maxSteps: 10 });
+    const r2 = await simulateStrategy(g, strategy, objective, engine, ["expected_recovery"], { runs: 50, seed: 42, maxSteps: 10 });
+
+    expect(r1.kpiDistributions.get("recovery")!.mean).toBe(r2.kpiDistributions.get("recovery")!.mean);
+  });
+
+  it("should produce distribution with std > 0 when predictions have uncertainty", async () => {
+    const { g, caseE } = buildLegalWorld();
+    const objective = buildObjective();
+    const strategy = buildStrategies(caseE.id)[0];
+    const engine = new PredictionEngine();
+    engine.registerModel(new HeuristicModel("h", "expected_recovery", [], { mean: 65000, std: 10000, confidence: 0.7 }));
+
+    const result = await simulateStrategy(g, strategy, objective, engine, ["expected_recovery"], { runs: 100, seed: 42, maxSteps: 10 });
+
+    expect(result.monteCarloRuns).toBeGreaterThanOrEqual(30);
+    const dist = result.kpiDistributions.get("recovery");
+    expect(dist).toBeDefined();
+    expect(dist!.std).toBeGreaterThan(0);
+    expect(dist!.percentiles.p5).toBeLessThan(dist!.mean);
+    expect(dist!.percentiles.p95).toBeGreaterThan(dist!.mean);
+  });
+
+  it("should converge early with deterministic predictions", async () => {
+    const { g, caseE } = buildLegalWorld();
+    const objective = buildObjective();
+    const strategy = buildStrategies(caseE.id)[0];
+
+    const result = await simulateStrategy(g, strategy, objective, undefined, undefined, { runs: 200, seed: 42, maxSteps: 10, convergenceThreshold: 0.05, minRunsBeforeConvergence: 10 });
+
+    // No prediction engine → deterministic → should converge quickly
+    expect(result.converged).toBe(true);
+    expect(result.monteCarloRuns).toBeLessThan(200);
+  });
+
+  it("backward compatibility: runs=1 gives deterministic result", async () => {
+    const { g, caseE } = buildLegalWorld();
+    const objective = buildObjective();
+    const strategy = buildStrategies(caseE.id)[0];
+
+    const result = await simulateStrategy(g, strategy, objective);
+
+    expect(result.monteCarloRuns).toBe(1);
+    expect(result.converged).toBe(true);
+    expect(result.kpiDistributions.size).toBeGreaterThan(0);
+  });
+
+  it("keepPerRunResults should preserve individual runs", async () => {
+    const { g, caseE } = buildLegalWorld();
+    const objective = buildObjective();
+    const strategy = buildStrategies(caseE.id)[0];
+
+    const result = await simulateStrategy(g, strategy, objective, undefined, undefined, { runs: 10, seed: 42, maxSteps: 10, keepPerRunResults: true });
+
+    expect(result.perRunResults).toBeDefined();
+    expect(result.perRunResults!.length).toBe(10);
   });
 });

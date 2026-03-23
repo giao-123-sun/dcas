@@ -65,6 +65,29 @@ export interface SimulationResult {
   riskProfile: RiskProfile;
   /** Reasoning chain for explainability */
   reasoningChain: string[];
+  /** Number of MC runs actually executed */
+  monteCarloRuns: number;
+  /** KPI distributions from MC sampling */
+  kpiDistributions: Map<string, ProbabilityDistribution>;
+  /** Per-run KPI values (if keepPerRunResults=true) */
+  perRunResults?: Array<Record<string, number>>;
+  /** Whether MC converged early */
+  converged: boolean;
+}
+
+export interface MonteCarloConfig {
+  /** Number of MC runs (default 100) */
+  runs: number;
+  /** Max simulation steps per run (default 10) */
+  maxSteps: number;
+  /** Random seed for reproducibility */
+  seed?: number;
+  /** Keep per-run results for debugging/visualization */
+  keepPerRunResults?: boolean;
+  /** Early stopping: coefficient of variation threshold */
+  convergenceThreshold?: number;
+  /** Minimum runs before checking convergence */
+  minRunsBeforeConvergence?: number;
 }
 
 export interface RiskProfile {

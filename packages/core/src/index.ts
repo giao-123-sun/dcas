@@ -75,9 +75,20 @@ export type {
   RiskProfile,
   RankedStrategies,
   RankedStrategy,
+  MonteCarloConfig,
 } from "./simulation/types.js";
 export { simulateStrategy } from "./simulation/simulator.js";
 export { compareStrategies, simulateAll } from "./simulation/comparator.js";
+
+// Sampler utilities
+export {
+  createSeededRng,
+  sampleNormal,
+  sampleEmpirical,
+  sampleFromDistribution,
+  coefficientOfVariation,
+  empiricalDistribution,
+} from "./prediction/sampler.js";
 
 // L4: LLM Strategy Generator
 export { generateStrategiesWithLLM } from "./simulation/llm-generator.js";

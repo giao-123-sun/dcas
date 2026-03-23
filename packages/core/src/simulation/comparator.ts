@@ -5,7 +5,7 @@
 import type { WorldGraph } from "../world-model/graph.js";
 import type { PredictionEngine } from "../prediction/engine.js";
 import type { ObjectiveSpec } from "../objective/types.js";
-import type { Strategy, RankedStrategies, RankedStrategy, SimulationResult } from "./types.js";
+import type { Strategy, RankedStrategies, RankedStrategy, SimulationResult, MonteCarloConfig } from "./types.js";
 import { simulateStrategy } from "./simulator.js";
 
 /**
@@ -17,11 +17,12 @@ export async function compareStrategies(
   objective: ObjectiveSpec,
   predictionEngine?: PredictionEngine,
   predictProperties?: string[],
+  mcConfig?: MonteCarloConfig,
 ): Promise<RankedStrategies> {
   // Simulate all strategies from the same base world
   const results: SimulationResult[] = await Promise.all(
     strategies.map((s) =>
-      simulateStrategy(world, s, objective, predictionEngine, predictProperties),
+      simulateStrategy(world, s, objective, predictionEngine, predictProperties, mcConfig),
     ),
   );
 
@@ -92,10 +93,11 @@ export async function simulateAll(
   objective: ObjectiveSpec,
   predictionEngine?: PredictionEngine,
   predictProperties?: string[],
+  mcConfig?: MonteCarloConfig,
 ): Promise<SimulationResult[]> {
   return Promise.all(
     strategies.map((s) =>
-      simulateStrategy(world, s, objective, predictionEngine, predictProperties),
+      simulateStrategy(world, s, objective, predictionEngine, predictProperties, mcConfig),
     ),
   );
 }

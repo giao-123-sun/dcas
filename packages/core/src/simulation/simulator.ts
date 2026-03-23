@@ -10,6 +10,8 @@ import type { ObjectiveSpec, ObjectiveResult } from "../objective/types.js";
 import { evaluateObjective } from "../objective/objective.js";
 import { forkGraph } from "../world-model/fork.js";
 import type { Strategy, SimulationResult, RiskProfile } from "./types.js";
+import type { DCASConfig } from "../config.js";
+import { DEFAULT_CONFIG } from "../config.js";
 
 /**
  * Simulate a strategy by:
@@ -26,6 +28,7 @@ export function simulateStrategy(
   objective: ObjectiveSpec,
   predictionEngine?: PredictionEngine,
   predictProperties?: string[],
+  config?: DCASConfig,
 ): SimulationResult {
   const fork = forkGraph(world, strategy.name);
   const allDiffs: PropertyDiff[] = [];
@@ -92,7 +95,8 @@ export function simulateStrategy(
   );
 
   // Compute risk profile from the primary KPI's prediction (if available)
-  const riskProfile = computeRiskProfile(objectiveResult, stepPredictions);
+  const cfg = config ?? DEFAULT_CONFIG;
+  const riskProfile = computeRiskProfile(objectiveResult, stepPredictions, cfg);
 
   return {
     strategyId: strategy.id,
@@ -109,6 +113,7 @@ export function simulateStrategy(
 function computeRiskProfile(
   objectiveResult: ObjectiveResult,
   stepPredictions: Map<string, ProbabilityDistribution>[],
+  config: DCASConfig = DEFAULT_CONFIG,
 ): RiskProfile {
   // If we have predictions from the last step, use them
   const lastStep = stepPredictions[stepPredictions.length - 1];
@@ -124,8 +129,8 @@ function computeRiskProfile(
   // Fallback: derive from objective score
   const score = objectiveResult.score;
   return {
-    bestCase: Math.min(score * 1.2, 1),
+    bestCase: Math.min(score * config.simulation.riskBestCaseMultiplier, 1),
     expectedCase: score,
-    worstCase: score * 0.7,
+    worstCase: score * config.simulation.riskWorstCaseMultiplier,
   };
 }

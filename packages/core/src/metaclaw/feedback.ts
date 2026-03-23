@@ -4,6 +4,8 @@
 // ============================================================
 
 import type { MetaClawFeedback } from "./types.js";
+import type { DCASConfig } from "../config.js";
+import { DEFAULT_CONFIG } from "../config.js";
 
 export interface LearningSignal {
   type: "recalibrate" | "ontology_suggestion" | "pattern";
@@ -15,13 +17,14 @@ export interface LearningSignal {
 /**
  * Process MetaClaw feedback and extract learning signals for DCAS.
  */
-export function processFeedback(feedback: MetaClawFeedback): LearningSignal[] {
+export function processFeedback(feedback: MetaClawFeedback, config?: DCASConfig): LearningSignal[] {
+  const cfg = config ?? DEFAULT_CONFIG;
   const signals: LearningSignal[] = [];
 
   // 1. Prediction deviation → model recalibration
   if (feedback.outcome) {
     const deviation = Math.abs(feedback.outcome.deviation);
-    if (deviation > 0.1) {
+    if (deviation > cfg.metaclaw.feedbackDeviationThreshold) {
       signals.push({
         type: "recalibrate",
         strategyId: feedback.dcas_strategy_id,
@@ -65,7 +68,7 @@ export function processFeedback(feedback: MetaClawFeedback): LearningSignal[] {
   }
 
   // 4. Low execution quality → strategy may be hard to execute
-  if (feedback.execution_summary.avg_reward < 0.5) {
+  if (feedback.execution_summary.avg_reward < cfg.metaclaw.lowQualityRewardThreshold) {
     signals.push({
       type: "pattern",
       strategyId: feedback.dcas_strategy_id,

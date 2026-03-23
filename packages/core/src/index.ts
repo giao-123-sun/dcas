@@ -1,5 +1,9 @@
 // DCAS Core — Public API
 
+// Configuration
+export type { DCASConfig, DeepPartial } from "./config.js";
+export { DEFAULT_CONFIG, mergeConfig } from "./config.js";
+
 // Types
 export type {
   EntityId,

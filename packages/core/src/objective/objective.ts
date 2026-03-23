@@ -12,6 +12,8 @@ import type {
   ObjectiveSpec,
   Tradeoff,
 } from "./types.js";
+import type { DCASConfig } from "../config.js";
+import { DEFAULT_CONFIG } from "../config.js";
 
 /**
  * Normalize a KPI value to [0, 1] based on direction and optional target.
@@ -75,7 +77,7 @@ function evaluateConstraint(constraint: Constraint, world: WorldGraph): Constrai
  * Apply tradeoff adjustments to KPI scores.
  * When two KPIs have a tradeoff preference, boost the preferred one slightly.
  */
-function applyTradeoffs(results: KPIResult[], tradeoffs: Tradeoff[]): KPIResult[] {
+function applyTradeoffs(results: KPIResult[], tradeoffs: Tradeoff[], config: DCASConfig = DEFAULT_CONFIG): KPIResult[] {
   if (tradeoffs.length === 0) return results;
 
   const adjusted = results.map((r) => ({ ...r }));
@@ -87,7 +89,7 @@ function applyTradeoffs(results: KPIResult[], tradeoffs: Tradeoff[]): KPIResult[
     if (!a || !b) continue;
 
     // Shift weight slightly based on preference
-    const shift = t.preference * 0.1; // 10% max weight shift
+    const shift = t.preference * config.objective.maxTradeoffShift;
     a.weight = Math.max(0, Math.min(1, a.weight + shift));
     b.weight = Math.max(0, Math.min(1, b.weight - shift));
   }
@@ -106,12 +108,14 @@ function applyTradeoffs(results: KPIResult[], tradeoffs: Tradeoff[]): KPIResult[
 /**
  * Evaluate the complete objective function against a world state.
  */
-export function evaluateObjective(spec: ObjectiveSpec, world: WorldGraph): ObjectiveResult {
+export function evaluateObjective(spec: ObjectiveSpec, world: WorldGraph, config?: DCASConfig): ObjectiveResult {
+  const cfg = config ?? DEFAULT_CONFIG;
+
   // Evaluate all KPIs
   let kpiResults = spec.kpis.map((kpi) => evaluateKPI(kpi, world));
 
   // Apply tradeoff adjustments
-  kpiResults = applyTradeoffs(kpiResults, spec.tradeoffs);
+  kpiResults = applyTradeoffs(kpiResults, spec.tradeoffs, cfg);
 
   // Evaluate all constraints
   const constraintResults = spec.constraints.map((c) => evaluateConstraint(c, world));
@@ -151,9 +155,10 @@ export function compareWorlds(
   spec: ObjectiveSpec,
   worldA: WorldGraph,
   worldB: WorldGraph,
+  config?: DCASConfig,
 ): { delta: number; resultA: ObjectiveResult; resultB: ObjectiveResult } {
-  const resultA = evaluateObjective(spec, worldA);
-  const resultB = evaluateObjective(spec, worldB);
+  const resultA = evaluateObjective(spec, worldA, config);
+  const resultB = evaluateObjective(spec, worldB, config);
   return {
     delta: resultA.score - resultB.score,
     resultA,

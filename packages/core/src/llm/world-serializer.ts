@@ -28,7 +28,7 @@ export function serializeWorldForLLM(world: WorldGraph): string {
       const props = Object.entries(e.properties)
         .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
         .join(", ");
-      lines.push(`- [${e.id.slice(0, 8)}] ${props}`);
+      lines.push(`- [${e.id.slice(0, 12)}] ${props}`);
     }
     lines.push("");
   }
@@ -42,7 +42,7 @@ export function serializeWorldForLLM(world: WorldGraph): string {
         .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
         .join(", ");
       const propsStr = props ? ` (${props})` : "";
-      lines.push(`- [${r.sourceId.slice(0, 8)}] —[${r.type}]→ [${r.targetId.slice(0, 8)}]${propsStr}`);
+      lines.push(`- [${r.sourceId.slice(0, 12)}] —[${r.type}]→ [${r.targetId.slice(0, 12)}]${propsStr}`);
     }
     lines.push("");
   }

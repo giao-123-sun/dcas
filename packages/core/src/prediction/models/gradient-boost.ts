@@ -7,6 +7,8 @@ import { RandomForestRegression } from "ml-random-forest";
 import type { PredictionContext, PredictionModel, ProbabilityDistribution } from "../types.js";
 import { normalDistribution } from "../distribution.js";
 import type { WorldGraph } from "../../world-model/graph.js";
+import type { DCASConfig } from "../../config.js";
+import { DEFAULT_CONFIG as DCAS_DEFAULT_CONFIG } from "../../config.js";
 
 /**
  * A feature extractor: pulls a numeric value from the world model.
@@ -59,10 +61,11 @@ const DEFAULT_CONFIG: Required<GradientBoostConfig> = {
  *   3. Predict → returns ProbabilityDistribution
  */
 export class GradientBoostModel implements PredictionModel {
-  readonly type = "statistical" as const;
+  readonly type = "gradient_boost" as const;
 
   private model: RandomForestRegression | null = null;
   private config: Required<GradientBoostConfig>;
+  private dcasConfig: DCASConfig;
   private trainingSamples: TrainingSample[] = [];
 
   constructor(
@@ -71,8 +74,10 @@ export class GradientBoostModel implements PredictionModel {
     private features: GBFeature[],
     config?: GradientBoostConfig,
     public accuracy: number = 0.75,
+    dcasConfig?: DCASConfig,
   ) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.dcasConfig = dcasConfig ?? DCAS_DEFAULT_CONFIG;
   }
 
   /**
@@ -129,7 +134,7 @@ export class GradientBoostModel implements PredictionModel {
     const treePredictions = this.predictFromEachTree(featureValues);
     const std = computeStd(treePredictions, prediction);
 
-    return normalDistribution(prediction, Math.max(std, 0.01), this.accuracy, this.id);
+    return normalDistribution(prediction, Math.max(std, this.dcasConfig.prediction.minStd), this.accuracy, this.id);
   }
 
   /**

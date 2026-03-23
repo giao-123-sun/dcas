@@ -52,7 +52,7 @@ export interface PredictionAction {
  */
 export interface PredictionModel {
   id: string;
-  type: "heuristic" | "statistical" | "adversary" | "llm";
+  type: "heuristic" | "statistical" | "adversary" | "llm" | "gradient_boost";
   /** Which property this model predicts */
   targetProperty: string;
   /** Historical accuracy score [0, 1] */

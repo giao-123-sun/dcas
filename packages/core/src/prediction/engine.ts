@@ -10,9 +10,16 @@ import type {
   ProbabilityDistribution,
 } from "./types.js";
 import { ensembleDistributions } from "./distribution.js";
+import type { DCASConfig } from "../config.js";
+import { DEFAULT_CONFIG } from "../config.js";
 
 export class PredictionEngine {
   private models = new Map<string, PredictionModel>();
+  private config: DCASConfig;
+
+  constructor(config?: DCASConfig) {
+    this.config = config ?? DEFAULT_CONFIG;
+  }
 
   registerModel(model: PredictionModel): void {
     this.models.set(model.id, model);
@@ -106,6 +113,7 @@ export class PredictionEngine {
     // Simple exponential moving average of accuracy
     const error = Math.min(Math.abs(observedDeviation), 1);
     const newAccuracy = 1 - error;
-    model.accuracy = model.accuracy * 0.8 + newAccuracy * 0.2;
+    const emaWeight = this.config.prediction.recalibrateEmaWeight;
+    model.accuracy = model.accuracy * emaWeight + newAccuracy * (1 - emaWeight);
   }
 }

@@ -4,6 +4,8 @@
 
 import type { DecisionRecord, Pattern, PatternCondition } from "./types.js";
 import { generateId } from "../utils/id.js";
+import type { DCASConfig } from "../config.js";
+import { DEFAULT_CONFIG } from "../config.js";
 
 /**
  * In-memory pattern store.
@@ -11,6 +13,11 @@ import { generateId } from "../utils/id.js";
  */
 export class PatternMemory {
   private patterns = new Map<string, Pattern>();
+  private config: DCASConfig;
+
+  constructor(config?: DCASConfig) {
+    this.config = config ?? DEFAULT_CONFIG;
+  }
 
   /**
    * Add or reinforce a pattern.
@@ -28,11 +35,11 @@ export class PatternMemory {
     if (existing) {
       existing.supportCount += 1;
       existing.confidence = Math.min(
-        0.99,
-        existing.confidence + (1 - existing.confidence) * 0.1,
+        this.config.pattern.maxConfidence,
+        existing.confidence + (1 - existing.confidence) * this.config.pattern.reinforceRate,
       );
       existing.examples.push(params.exampleDecisionId);
-      if (existing.examples.length > 10) existing.examples.shift();
+      if (existing.examples.length > this.config.pattern.maxExamples) existing.examples.shift();
       existing.updatedAt = Date.now();
       return existing;
     }

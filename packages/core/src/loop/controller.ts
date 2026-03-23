@@ -9,6 +9,8 @@ import type { PredictionEngine } from "../prediction/engine.js";
 import type { Strategy, RankedStrategies } from "../simulation/types.js";
 import { compareStrategies } from "../simulation/comparator.js";
 import type { DecisionStore } from "../memory/decision-store.js";
+import type { DCASConfig } from "../config.js";
+import { DEFAULT_CONFIG as DCAS_DEFAULT_CONFIG } from "../config.js";
 
 export type ControllerMode = "reactive" | "monitoring" | "autonomous";
 
@@ -58,6 +60,7 @@ const DEFAULT_CONFIG: ControllerConfig = {
  */
 export class DecisionLoopController {
   private config: ControllerConfig;
+  private dcasConfig: DCASConfig;
   private running = false;
   private timer: ReturnType<typeof setInterval> | null = null;
 
@@ -68,8 +71,10 @@ export class DecisionLoopController {
     config?: Partial<ControllerConfig>,
     private predictionEngine?: PredictionEngine,
     private decisionStore?: DecisionStore,
+    dcasConfig?: DCASConfig,
   ) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.dcasConfig = dcasConfig ?? DCAS_DEFAULT_CONFIG;
   }
 
   /**
@@ -88,7 +93,7 @@ export class DecisionLoopController {
         : kpiResult.value > kpiDef.threshold;
 
       if (breached) {
-        const severity = kpiResult.normalizedScore < 0.3 ? "critical" : "warning";
+        const severity = kpiResult.normalizedScore < this.dcasConfig.controller.criticalScoreThreshold ? "critical" : "warning";
         alerts.push({
           kpiId: kpiResult.kpiId,
           kpiName: kpiResult.name,
@@ -163,6 +168,7 @@ export class DecisionLoopController {
    * Start the monitoring loop.
    */
   start(): void {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
     if (this.running) return;
     this.running = true;
 

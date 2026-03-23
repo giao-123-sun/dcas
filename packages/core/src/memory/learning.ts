@@ -4,9 +4,8 @@
 
 import type { DecisionRecord, LearningUpdate } from "./types.js";
 import type { PatternMemory } from "./pattern.js";
-
-const SMALL_DEVIATION = 0.05;  // < 5% = accurate
-const LARGE_DEVIATION = 0.15;  // > 15% = significant miss
+import type { DCASConfig } from "../config.js";
+import { DEFAULT_CONFIG } from "../config.js";
 
 /**
  * Analyze a decision outcome and generate learning updates.
@@ -20,7 +19,11 @@ const LARGE_DEVIATION = 0.15;  // > 15% = significant miss
 export function learnFromOutcome(
   record: DecisionRecord,
   patternMemory: PatternMemory,
+  config?: DCASConfig,
 ): LearningUpdate[] {
+  const cfg = config ?? DEFAULT_CONFIG;
+  const SMALL_DEVIATION = cfg.learning.smallDeviationThreshold;
+  const LARGE_DEVIATION = cfg.learning.largeDeviationThreshold;
   const updates: LearningUpdate[] = [];
 
   if (!record.outcome) return updates;
@@ -106,7 +109,10 @@ export function learnFromOutcome(
 export function analyzeDecisionHistory(
   records: DecisionRecord[],
   patternMemory: PatternMemory,
+  config?: DCASConfig,
 ): LearningUpdate[] {
+  const cfg = config ?? DEFAULT_CONFIG;
+  const SMALL_DEVIATION = cfg.learning.smallDeviationThreshold;
   const withOutcomes = records.filter((r) => r.outcome != null);
   if (withOutcomes.length < 3) return [];
 
@@ -136,7 +142,7 @@ export function analyzeDecisionHistory(
 
       // Systematic bias: most deviations in the same direction
       const sameSign = deviations.filter((d) => Math.sign(d) === Math.sign(meanDev));
-      if (sameSign.length >= deviations.length * 0.7 && Math.abs(meanDev) > SMALL_DEVIATION) {
+      if (sameSign.length >= deviations.length * cfg.learning.biasDirectionThreshold && Math.abs(meanDev) > SMALL_DEVIATION) {
         const direction = meanDev > 0 ? "系统性高估" : "系统性低估";
         updates.push({
           type: "recalibrate",

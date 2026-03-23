@@ -61,7 +61,7 @@ export class WorldGraph {
   getEntitiesByType(type: EntityType): Entity[] {
     const ids = this.byType.get(type);
     if (!ids) return [];
-    return [...ids].map((id) => this.entities.get(id)!);
+    return [...ids].map((id) => this.entities.get(id)).filter((e): e is Entity => e !== undefined);
   }
 
   getAllEntities(): Entity[] {
@@ -159,7 +159,8 @@ export class WorldGraph {
 
     if (direction === "outgoing" || direction === "both") {
       for (const rid of this.outgoing.get(entityId) ?? []) {
-        const relation = this.relations.get(rid)!;
+        const relation = this.relations.get(rid);
+        if (!relation) continue;
         if (typeSet && !typeSet.has(relation.type)) continue;
         const entity = this.entities.get(relation.targetId);
         if (entity) result.push({ relation, entity });
@@ -168,7 +169,8 @@ export class WorldGraph {
 
     if (direction === "incoming" || direction === "both") {
       for (const rid of this.incoming.get(entityId) ?? []) {
-        const relation = this.relations.get(rid)!;
+        const relation = this.relations.get(rid);
+        if (!relation) continue;
         if (typeSet && !typeSet.has(relation.type)) continue;
         const entity = this.entities.get(relation.sourceId);
         if (entity) result.push({ relation, entity });

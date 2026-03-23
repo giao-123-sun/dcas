@@ -3,6 +3,7 @@ import { WorldGraph } from "../../src/world-model/graph.js";
 import { PredictionEngine } from "../../src/prediction/engine.js";
 import { HeuristicModel } from "../../src/prediction/models/heuristic.js";
 import { StatisticalModel } from "../../src/prediction/models/statistical.js";
+import { GradientBoostModel } from "../../src/prediction/models/gradient-boost.js";
 import {
   normalDistribution,
   skewedDistribution,
@@ -227,6 +228,17 @@ describe("PredictionEngine", () => {
     const afterSmall = model.accuracy;
     engine.recalibrate("m", 0.02);
     expect(model.accuracy).toBeGreaterThan(afterSmall - 0.1);
+  });
+
+  it("should distinguish gradient_boost from statistical model by type", () => {
+    const engine = new PredictionEngine();
+    const stat = new StatisticalModel("stat1", "recovery", [{ name: "x", extract: () => 1 }], [1], 0, 1);
+    const gb = new GradientBoostModel("gb1", "recovery", [{ name: "x", extract: () => 1 }]);
+    engine.registerModel(stat);
+    engine.registerModel(gb);
+    const models = engine.getModelsForProperty("recovery");
+    expect(models).toHaveLength(2);
+    expect(models.map(m => m.type).sort()).toEqual(["gradient_boost", "statistical"]);
   });
 
   it("should predict multiple properties", () => {

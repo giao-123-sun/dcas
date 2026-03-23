@@ -25,7 +25,7 @@ export function applyCascade(
     newValue: PropertyValue,
     depth: number,
   ): void {
-    const key = `${entityId}:${property}`;
+    const key = `${entityId}\0${property}`;
     if (visited.has(key)) return;
     visited.add(key);
 

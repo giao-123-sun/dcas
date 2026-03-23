@@ -176,4 +176,18 @@ describe("DecisionLoopController", () => {
     controller.stop();
     expect(controller.isRunning).toBe(false);
   });
+
+  it("should handle double start() without timer leak", () => {
+    const { g, caseE } = buildWorld();
+    const objective = buildObjective();
+    const controller = new DecisionLoopController(
+      g, objective, () => [],
+      { mode: "monitoring", checkIntervalMs: 100000 },
+    );
+    controller.start();
+    controller.start(); // double start
+    expect(controller.isRunning).toBe(true);
+    controller.stop();
+    expect(controller.isRunning).toBe(false);
+  });
 });

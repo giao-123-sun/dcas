@@ -2,8 +2,8 @@
 
 > 把"一个聪明人做决策时脑子里转的东西"拆成六个独立模块，让每个模块可以单独进化、可替换、可追溯。
 
-**版本**: 0.2.0 (Phase 0-4 complete)
-**状态**: Phase 0-4 complete, Demo available, 140 tests
+**版本**: 0.3.0 (Phase 0-5 complete)
+**状态**: 全部 Phase 完成 | 3 领域包 | REST API | 171 tests | [Live Demo](https://giao-123-sun.github.io/dcas/)
 **组织**: Agioa Internal
 
 ---
@@ -455,6 +455,11 @@ Duration:    ~8s
 | Phase 4.1 | Demo 前端（React + Vite + Recharts） | +7 | — | 140 | `435866a` |
 | Code Review | 8 个 critical/high bug 修复 | — | — | 140 | `9ac8e89` |
 | i18n | 全部中文字符串提取到 i18n + LLM prompts | +3 | — | 140 | `d73d651` |
+| Phase 4.2 | SQLite 持久化层（better-sqlite3） | +2 | +7 | 147 | `20fc828` |
+| Phase 4.3 | GitHub Actions CI + Pages 部署 | +1 | — | 147 | `48d5ccf` |
+| Phase 5.2+5.3 | HTTP REST API + 内容运营领域包 | +17 | +12 | 159 | `ebb36ec` |
+| Phase 5.4 | 投资组合领域包 | +9 | +7 | 166 | — |
+| Phase 5.5 | LLM Entity Extractor（Ontology 半自动构建） | +2 | +5 | 171 | — |
 
 ### 当前状态
 
@@ -476,15 +481,16 @@ Duration:    ~8s
 ✅ Demo 1: 法律策略模拟器 — 完成（React + Vite + Recharts）
 ✅ i18n 国际化           — 完成（zh/en 双语 + LLM prompt 模板提取）
 ✅ Code Review 修复      — 完成（8 个 critical/high bug）
+✅ SQLite 持久化层        — 完成（better-sqlite3, WAL mode）
+✅ GitHub Actions CI      — 完成（build→test→deploy to Pages）
+✅ HTTP REST API          — 完成（Express, /simulate /feedback /history /patterns）
+✅ @dcas/content 领域包   — 完成（账号/竞品/平台/内容计划 + 3策略）
+✅ @dcas/investment 领域包 — 完成（组合/资产/宏观因子 + 3调仓策略）
+✅ LLM Entity Extractor   — 完成（文本→实体关系 + 智能去重匹配）
 
-⬜ Demo 2: 内容运营决策引擎  — 未开始（Phase 5.3）
-⬜ Demo 3: 投资组合沙箱     — 未开始（Phase 5.4）
-⬜ 领域包 (content/investment) — 未开始
-⬜ SQLite 持久化层           — 未开始（Phase 4.2）
-⬜ GitHub Pages 部署 + CI    — 未开始（Phase 4.3）
 ⬜ 真实 MetaClaw 集成测试     — 未开始（Phase 5.1）
-⬜ HTTP API 服务             — 未开始（Phase 5.2）
-⬜ Ontology 自动发现         — 未开始（Phase 5.5）
+⬜ Demo 2: 内容运营前端       — 待开发
+⬜ Demo 3: 投资组合前端       — 待开发
 ```
 
 ---
@@ -505,14 +511,22 @@ Duration:    ~8s
 | i18n 国际化（zh/en + LLM prompt 模板） | `d73d651` |
 | Code Review 8 项 critical/high bug 修复 | `9ac8e89` |
 
-### 待开发（按优先级）
+| SQLite 持久化层（better-sqlite3） | `20fc828` |
+| GitHub Actions CI + Pages 部署 | `48d5ccf` |
+| HTTP REST API（Express, 4端点） | `ebb36ec` |
+| @dcas/content 内容运营领域包 | `ebb36ec` |
+| @dcas/investment 投资组合领域包 | 本次提交 |
+| LLM Entity Extractor（半自动 ontology 构建） | 本次提交 |
+
+### 待开发
 
 **P0: 近期**
 
-| 功能 | 说明 | Phase |
-|------|------|-------|
-| SQLite 持久化层 | better-sqlite3 替代内存 Map，DecisionStore/PatternMemory 持久化 | 4.2 |
-| GitHub Actions CI + GitHub Pages 部署 | build→test→deploy 自动化，Demo 公开可访问 | 4.3 |
+| 功能 | 说明 |
+|------|------|
+| MetaClaw 真实对接 | pip install metaclaw + 文件系统 Skill 注入 + 反馈回收 |
+| Demo 2: 内容运营前端 | React + Vite，展示内容策略对比 |
+| Demo 3: 投资组合前端 | React + Vite，展示平行世界 + 宏观因子场景对比 |
 
 **P1: 中期**
 

@@ -102,6 +102,8 @@ export { LLMClient, createLLMClientFromEnv } from "./llm/client.js";
 export type { LLMConfig, LLMMessage, LLMResponse } from "./llm/client.js";
 export { serializeWorldForLLM, serializeObjectiveForLLM } from "./llm/world-serializer.js";
 export { LLMPredictionModel } from "./prediction/models/llm.js";
+export { extractEntitiesFromText, applyExtractionToGraph, matchExistingEntities, smartApplyExtraction } from "./llm/entity-extractor.js";
+export type { ExtractedEntity, ExtractedRelation, ExtractionResult } from "./llm/entity-extractor.js";
 
 // MetaClaw Integration
 export type {

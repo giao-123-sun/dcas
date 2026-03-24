@@ -6,6 +6,7 @@ import type { WorldGraph } from "../world-model/graph.js";
 import type { EntityId, PropertyValue, PropertyDiff } from "../world-model/types.js";
 import type { ProbabilityDistribution } from "../prediction/types.js";
 import type { ObjectiveResult } from "../objective/types.js";
+import type { FeasibilityResult } from "../self-model/types.js";
 
 /**
  * A concrete action that modifies the world model.
@@ -73,6 +74,8 @@ export interface SimulationResult {
   perRunResults?: Array<Record<string, number>>;
   /** Whether MC converged early */
   converged: boolean;
+  /** Feasibility check result (only present when SelfModel provided) */
+  feasibility?: FeasibilityResult;
 }
 
 export interface MonteCarloConfig {
@@ -117,4 +120,6 @@ export interface RankedStrategy {
   objectiveResult: ObjectiveResult;
   /** Why this rank */
   reasoning: string;
+  /** Feasibility check result (only present when SelfModel provided) */
+  feasibility?: FeasibilityResult;
 }

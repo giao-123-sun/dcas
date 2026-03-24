@@ -70,6 +70,16 @@ export type { GBFeature, TrainingSample, GradientBoostConfig } from "./predictio
 export { AdversaryModel } from "./prediction/models/adversary.js";
 export type { AdversaryProfile } from "./prediction/models/adversary.js";
 
+// Self-Model
+export { SelfModel } from "./self-model/self-model.js";
+export { checkFeasibility, suggestMitigations } from "./self-model/feasibility.js";
+export { selfModelCascadeRules } from "./self-model/cascade-rules.js";
+export type {
+  SelfCapability, SelfResource, SelfBoundary,
+  FeasibilityResult, FeasibilityIssue, Mitigation,
+  SkillRequirement, StrategyRequirements,
+} from "./self-model/types.js";
+
 // L4: Simulation & Strategy
 export type {
   Action,

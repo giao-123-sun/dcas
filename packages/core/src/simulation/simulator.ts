@@ -11,6 +11,8 @@ import { evaluateObjective } from "../objective/objective.js";
 import { forkGraph } from "../world-model/fork.js";
 import type { Strategy, SimulationResult, RiskProfile, MonteCarloConfig } from "./types.js";
 import type { DCASConfig } from "../config.js";
+import type { SelfModel } from "../self-model/self-model.js";
+import { checkFeasibility } from "../self-model/feasibility.js";
 import { DEFAULT_CONFIG } from "../config.js";
 import { getLocale } from "../i18n/index.js";
 import {
@@ -39,14 +41,23 @@ export async function simulateStrategy(
   predictProperties?: string[],
   mcConfig?: MonteCarloConfig,
   config?: DCASConfig,
+  selfModel?: SelfModel,
 ): Promise<SimulationResult> {
   // If no MC config or single run, behave like before
   if (!mcConfig || mcConfig.runs <= 1) {
-    return runSingleSimulation(world, strategy, objective, predictionEngine, predictProperties, config);
+    const result = await runSingleSimulation(world, strategy, objective, predictionEngine, predictProperties, config);
+    if (selfModel) {
+      result.feasibility = checkFeasibility(strategy, selfModel, world);
+    }
+    return result;
   }
 
   // Monte Carlo mode
-  return runMonteCarloSimulation(world, strategy, objective, predictionEngine, predictProperties, mcConfig, config);
+  const result = await runMonteCarloSimulation(world, strategy, objective, predictionEngine, predictProperties, mcConfig, config, selfModel);
+  if (selfModel) {
+    result.feasibility = checkFeasibility(strategy, selfModel, world);
+  }
+  return result;
 }
 
 /**
@@ -155,6 +166,7 @@ async function runMonteCarloSimulation(
   predictProperties?: string[],
   mcConfig?: MonteCarloConfig,
   config?: DCASConfig,
+  selfModel?: SelfModel,
 ): Promise<SimulationResult> {
   const cfg = config ?? DEFAULT_CONFIG;
   const runs = mcConfig!.runs;
@@ -235,7 +247,15 @@ async function runMonteCarloSimulation(
           stepPredMap.set(prop, dist);
 
           // Sample a value from the distribution and apply it to the action's entity
-          const sampledValue = sampleFromDistribution(dist, rng);
+          let sampledValue = sampleFromDistribution(dist, rng);
+          // Apply quality factor if selfModel is provided
+          if (selfModel && typeof sampledValue === "number") {
+            const members = selfModel.getTeamMembers();
+            if (members.length > 0) {
+              const qualityFactor = selfModel.getQualityFactor(members[0].id, action.property);
+              sampledValue = sampledValue * qualityFactor;
+            }
+          }
           const targetEntity = fork.getEntity(action.entityId);
           if (targetEntity && typeof sampledValue === "number") {
             fork.updateProperty(action.entityId, prop, sampledValue);

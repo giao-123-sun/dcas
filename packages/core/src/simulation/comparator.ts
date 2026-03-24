@@ -8,6 +8,7 @@ import type { ObjectiveSpec } from "../objective/types.js";
 import type { Strategy, RankedStrategies, RankedStrategy, SimulationResult, MonteCarloConfig } from "./types.js";
 import { simulateStrategy } from "./simulator.js";
 import { getLocale } from "../i18n/index.js";
+import type { SelfModel } from "../self-model/self-model.js";
 
 /**
  * Simulate multiple strategies and rank them by objective score.
@@ -19,21 +20,28 @@ export async function compareStrategies(
   predictionEngine?: PredictionEngine,
   predictProperties?: string[],
   mcConfig?: MonteCarloConfig,
+  selfModel?: SelfModel,
 ): Promise<RankedStrategies> {
   // Simulate all strategies from the same base world
   const results: SimulationResult[] = await Promise.all(
     strategies.map((s) =>
-      simulateStrategy(world, s, objective, predictionEngine, predictProperties, mcConfig),
+      simulateStrategy(world, s, objective, predictionEngine, predictProperties, mcConfig, undefined, selfModel),
     ),
   );
 
-  // Sort by objective score (descending) — hard violations go to bottom
+  // Sort by objective score (descending) — hard violations go to bottom; infeasible go after feasible
   const sorted = results
     .map((r, i) => ({ result: r, strategy: strategies[i] }))
     .sort((a, b) => {
       // Hard violations always rank last
       if (a.result.objectiveResult.hardViolation !== b.result.objectiveResult.hardViolation) {
         return a.result.objectiveResult.hardViolation ? 1 : -1;
+      }
+      // Infeasible strategies rank after feasible ones (but before hard violations)
+      const aInfeasible = a.result.feasibility?.feasible === false;
+      const bInfeasible = b.result.feasibility?.feasible === false;
+      if (aInfeasible !== bInfeasible) {
+        return aInfeasible ? 1 : -1;
       }
       return b.result.objectiveResult.score - a.result.objectiveResult.score;
     });
@@ -46,6 +54,7 @@ export async function compareStrategies(
     riskProfile: result.riskProfile,
     objectiveResult: result.objectiveResult,
     reasoning: generateReasoning(result, i + 1, sorted.length),
+    feasibility: result.feasibility,
   }));
 
   return {
@@ -101,10 +110,11 @@ export async function simulateAll(
   predictionEngine?: PredictionEngine,
   predictProperties?: string[],
   mcConfig?: MonteCarloConfig,
+  selfModel?: SelfModel,
 ): Promise<SimulationResult[]> {
   return Promise.all(
     strategies.map((s) =>
-      simulateStrategy(world, s, objective, predictionEngine, predictProperties, mcConfig),
+      simulateStrategy(world, s, objective, predictionEngine, predictProperties, mcConfig, undefined, selfModel),
     ),
   );
 }

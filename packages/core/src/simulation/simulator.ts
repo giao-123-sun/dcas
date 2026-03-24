@@ -12,6 +12,7 @@ import { forkGraph } from "../world-model/fork.js";
 import type { Strategy, SimulationResult, RiskProfile, MonteCarloConfig } from "./types.js";
 import type { DCASConfig } from "../config.js";
 import { DEFAULT_CONFIG } from "../config.js";
+import { getLocale } from "../i18n/index.js";
 import {
   sampleFromDistribution,
   createSeededRng,
@@ -64,7 +65,8 @@ async function runSingleSimulation(
   const stepPredictions: Map<string, ProbabilityDistribution>[] = [];
   const reasoning: string[] = [];
 
-  reasoning.push(`开始模拟策略: ${strategy.name}`);
+  const t = getLocale().simulation;
+  reasoning.push(t.startSimulation(strategy.name));
 
   // Execute actions step by step
   for (let step = 0; step < strategy.actions.length; step++) {
@@ -73,7 +75,7 @@ async function runSingleSimulation(
     // Apply the action
     const entity = fork.getEntity(action.entityId);
     if (!entity) {
-      reasoning.push(`步骤${step + 1}: 实体 ${action.entityId} 不存在，跳过`);
+      reasoning.push(t.entityNotFound(step + 1, action.entityId));
       continue;
     }
 
@@ -81,8 +83,7 @@ async function runSingleSimulation(
     allDiffs.push(...result.diffs);
 
     reasoning.push(
-      `步骤${step + 1}: ${action.description} → ` +
-      `直接变更${result.diffs.length > 0 ? 1 : 0}项，级联传播${result.cascadeCount}项`,
+      t.stepResult(step + 1, action.description, result.diffs.length > 0 ? 1 : 0, result.cascadeCount),
     );
 
     // Evaluate conditionals
@@ -97,7 +98,7 @@ async function runSingleSimulation(
               cond.action.value,
             );
             allDiffs.push(...condResult.diffs);
-            reasoning.push(`  条件触发: ${cond.description}`);
+            reasoning.push(t.conditionalTriggered(cond.description));
           }
         }
       }
@@ -118,9 +119,7 @@ async function runSingleSimulation(
   // Final objective evaluation
   const objectiveResult = evaluateObjective(objective, fork);
   reasoning.push(
-    `最终得分: ${objectiveResult.score.toFixed(3)}` +
-    (objectiveResult.hardViolation ? " (硬约束违反!)" : "") +
-    (objectiveResult.alerts.length > 0 ? ` 告警: ${objectiveResult.alerts.join(", ")}` : ""),
+    t.finalScore(objectiveResult.score.toFixed(3), objectiveResult.hardViolation, objectiveResult.alerts),
   );
 
   // Compute risk profile from the primary KPI's prediction (if available)
@@ -186,7 +185,8 @@ async function runMonteCarloSimulation(
     const runStepPredictions: Map<string, ProbabilityDistribution>[] = [];
     const runReasoning: string[] = [];
 
-    runReasoning.push(`开始模拟策略: ${strategy.name}`);
+    const tMC = getLocale().simulation;
+    runReasoning.push(tMC.startSimulation(strategy.name));
 
     const actionCount = Math.min(strategy.actions.length, maxSteps);
 
@@ -195,7 +195,7 @@ async function runMonteCarloSimulation(
 
       const entity = fork.getEntity(action.entityId);
       if (!entity) {
-        runReasoning.push(`步骤${step + 1}: 实体 ${action.entityId} 不存在，跳过`);
+        runReasoning.push(tMC.entityNotFound(step + 1, action.entityId));
         continue;
       }
 
@@ -204,8 +204,7 @@ async function runMonteCarloSimulation(
       runDiffs.push(...result.diffs);
 
       runReasoning.push(
-        `步骤${step + 1}: ${action.description} → ` +
-        `直接变更${result.diffs.length > 0 ? 1 : 0}项，级联传播${result.cascadeCount}项`,
+        tMC.stepResult(step + 1, action.description, result.diffs.length > 0 ? 1 : 0, result.cascadeCount),
       );
 
       // Evaluate conditionals
@@ -220,7 +219,7 @@ async function runMonteCarloSimulation(
                 cond.action.value,
               );
               runDiffs.push(...condResult.diffs);
-              runReasoning.push(`  条件触发: ${cond.description}`);
+              runReasoning.push(tMC.conditionalTriggered(cond.description));
             }
           }
         }
@@ -252,9 +251,7 @@ async function runMonteCarloSimulation(
     // Final objective evaluation for this run
     const objectiveResult = evaluateObjective(objective, fork);
     runReasoning.push(
-      `最终得分: ${objectiveResult.score.toFixed(3)}` +
-      (objectiveResult.hardViolation ? " (硬约束违反!)" : "") +
-      (objectiveResult.alerts.length > 0 ? ` 告警: ${objectiveResult.alerts.join(", ")}` : ""),
+      tMC.finalScore(objectiveResult.score.toFixed(3), objectiveResult.hardViolation, objectiveResult.alerts),
     );
 
     // Collect KPI values

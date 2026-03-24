@@ -11,6 +11,7 @@ import { compareStrategies } from "../simulation/comparator.js";
 import type { DecisionStore } from "../memory/decision-store.js";
 import type { DCASConfig } from "../config.js";
 import { DEFAULT_CONFIG as DCAS_DEFAULT_CONFIG } from "../config.js";
+import { getLocale } from "../i18n/index.js";
 
 export type ControllerMode = "reactive" | "monitoring" | "autonomous";
 
@@ -140,13 +141,14 @@ export class DecisionLoopController {
       top.riskProfile.worstCase >= this.config.autoWorstCaseFloor &&
       !top.objectiveResult.hardViolation;
 
+    const tc = getLocale().controller;
     const action: ControllerAction = {
       type: shouldAutoExecute ? "auto_execute" : "recommend",
       rankings,
       alerts,
       reasoning: shouldAutoExecute
-        ? `自动执行: ${top.strategyName} (得分${top.score.toFixed(3)}, 最差${top.riskProfile.worstCase.toFixed(3)})`
-        : `推荐: ${top.strategyName} (得分${top.score.toFixed(3)})${alerts.length > 0 ? `, ${alerts.length}项KPI告警` : ""}`,
+        ? tc.autoExecute(top.strategyName, top.score.toFixed(3), top.riskProfile.worstCase.toFixed(3))
+        : tc.recommend(top.strategyName, top.score.toFixed(3), alerts.length),
     };
 
     // Record decision if store available

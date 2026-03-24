@@ -2,6 +2,7 @@ import type { PredictionContext, PredictionModel, ProbabilityDistribution } from
 import { normalDistribution } from "../distribution.js";
 import type { LLMClient } from "../../llm/client.js";
 import { serializeWorldForLLM } from "../../llm/world-serializer.js";
+import { promptsZh } from "../../llm/prompts/zh.js";
 import type { WorldGraph } from "../../world-model/graph.js";
 import type { Action } from "../../simulation/types.js";
 import type { EntityId, PropertyValue } from "../../world-model/types.js";
@@ -112,21 +113,20 @@ export class AdversaryModel implements PredictionModel {
 
     const worldText = serializeWorldForLLM(context.world);
     const actionText = context.action
-      ? `我方行动: ${context.action.description}`
-      : "无特定行动";
+      ? `Our action: ${context.action.description}`
+      : "";
 
-    const prompt = `你是对手方的法律顾问。根据以下情况预测对手的反应。
+    const behaviors = this.profile.behaviors
+      .map((b) => `${b.situation}→${b.response}(${(b.probability * 100).toFixed(0)}%)`)
+      .join(", ");
 
-${worldText}
-
-${actionText}
-
-对手画像:
-- 类型: ${this.profile.entityType}
-- 历史行为模式: ${this.profile.behaviors.map(b => `${b.situation}→${b.response}(${(b.probability*100).toFixed(0)}%)`).join(', ')}
-
-请预测对手在 "${this.targetProperty}" 方面的反应值。
-返回JSON: { "mean": <数值>, "std": <不确定性>, "confidence": <0-1>, "reasoning": "<推理>" }`;
+    const prompt = promptsZh.adversaryPredict(
+      worldText,
+      actionText,
+      this.profile.entityType,
+      behaviors,
+      this.targetProperty,
+    );
 
     try {
       const result = await this.llmClient.chatJSON<{ mean: number; std: number; confidence: number }>(

@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { WorldGraph } from "../world-model/graph.js";
+import { getLocale } from "../i18n/index.js";
 
 /**
  * Serialize a WorldGraph into a concise text representation
@@ -10,6 +11,7 @@ import type { WorldGraph } from "../world-model/graph.js";
  */
 export function serializeWorldForLLM(world: WorldGraph): string {
   const lines: string[] = [];
+  const ts = getLocale().serializer;
 
   // Entities grouped by type
   const entities = world.getAllEntities();
@@ -19,11 +21,11 @@ export function serializeWorldForLLM(world: WorldGraph): string {
     byType.get(e.type)!.push(e);
   }
 
-  lines.push("## 世界状态");
+  lines.push(ts.worldState);
   lines.push("");
 
   for (const [type, ents] of byType) {
-    lines.push(`### ${type} (${ents.length}个)`);
+    lines.push(ts.entityCount(type, ents.length));
     for (const e of ents) {
       const props = Object.entries(e.properties)
         .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
@@ -36,7 +38,7 @@ export function serializeWorldForLLM(world: WorldGraph): string {
   // Relations
   const relations = world.getAllRelations();
   if (relations.length > 0) {
-    lines.push("### 关系");
+    lines.push(ts.relations);
     for (const r of relations) {
       const props = Object.entries(r.properties)
         .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
@@ -58,14 +60,15 @@ export function serializeObjectiveForLLM(objective: {
   constraints: Array<{ id: string; description: string; severity: string }>;
 }): string {
   const lines: string[] = [];
-  lines.push("## 目标函数");
+  const ts = getLocale().serializer;
+  lines.push(ts.objectiveFunction);
   lines.push("");
-  lines.push("### KPI指标");
+  lines.push(ts.kpiMetrics);
   for (const k of objective.kpis) {
-    lines.push(`- ${k.name} (${k.id}): ${k.direction}, 权重${(k.weight * 100).toFixed(0)}%${k.target ? `, 目标${k.target}` : ""}`);
+    lines.push(ts.kpiLine(k.name, k.id, k.direction, (k.weight * 100).toFixed(0), k.target));
   }
   lines.push("");
-  lines.push("### 约束");
+  lines.push(ts.constraints);
   for (const c of objective.constraints) {
     lines.push(`- [${c.severity}] ${c.description}`);
   }

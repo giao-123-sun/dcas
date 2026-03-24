@@ -6,6 +6,7 @@ import type { DecisionRecord, LearningUpdate } from "./types.js";
 import type { PatternMemory } from "./pattern.js";
 import type { DCASConfig } from "../config.js";
 import { DEFAULT_CONFIG } from "../config.js";
+import { getLocale } from "../i18n/index.js";
 
 /**
  * Analyze a decision outcome and generate learning updates.
@@ -25,6 +26,7 @@ export function learnFromOutcome(
   const SMALL_DEVIATION = cfg.learning.smallDeviationThreshold;
   const LARGE_DEVIATION = cfg.learning.largeDeviationThreshold;
   const updates: LearningUpdate[] = [];
+  const tl = getLocale().learning;
 
   if (!record.outcome) return updates;
 
@@ -39,7 +41,7 @@ export function learnFromOutcome(
         type: "confidence_up",
         target: kpi,
         data: { deviation, absDev },
-        reason: `KPI "${kpi}" 预测准确 (偏差${(deviation * 100).toFixed(1)}%)`,
+        reason: tl.accuratePrediction(kpi, (deviation * 100).toFixed(1)),
       });
     } else if (absDev > LARGE_DEVIATION) {
       // Significant miss → recalibrate
@@ -52,7 +54,7 @@ export function learnFromOutcome(
           actual: record.outcome!.actualKPIValues[kpi],
           strategy: record.chosenStrategyId,
         },
-        reason: `KPI "${kpi}" 预测偏差过大 (${(deviation * 100).toFixed(1)}%)，需要校准模型`,
+        reason: tl.largeBias(kpi, (deviation * 100).toFixed(1)),
       });
     }
   }
@@ -64,12 +66,12 @@ export function learnFromOutcome(
         type: "ontology_suggestion",
         target: "world_model",
         data: { effect, strategyId: record.chosenStrategyId },
-        reason: `意外效应: "${effect}" — 可能需要扩展世界模型`,
+        reason: tl.unexpectedEffect(effect),
       });
 
       // Add to pattern memory
       patternMemory.addPattern({
-        description: `策略 ${record.chosenStrategyId} 产生意外效应: ${effect}`,
+        description: tl.strategyUnexpected(record.chosenStrategyId, effect),
         condition: {
           strategyTypes: [record.chosenStrategyId],
           entityTypes: record.worldSnapshot.entitySummaries.map((e) => e.type),
@@ -89,12 +91,12 @@ export function learnFromOutcome(
   if (avgDeviation < SMALL_DEVIATION) {
     // Strategy worked as predicted
     patternMemory.addPattern({
-      description: `策略 ${record.chosenStrategyId} 在此类场景下表现符合预期`,
+      description: tl.strategyMatchedExpected(record.chosenStrategyId),
       condition: {
         strategyTypes: [record.chosenStrategyId],
         entityTypes: record.worldSnapshot.entitySummaries.map((e) => e.type),
       },
-      observation: `平均偏差 ${(avgDeviation * 100).toFixed(1)}%`,
+      observation: tl.avgDeviation((avgDeviation * 100).toFixed(1)),
       confidence: 0.6,
       exampleDecisionId: record.id,
     });
@@ -117,6 +119,7 @@ export function analyzeDecisionHistory(
   if (withOutcomes.length < 3) return [];
 
   const updates: LearningUpdate[] = [];
+  const tl = getLocale().learning;
 
   // Group by strategy
   const byStrategy = new Map<string, DecisionRecord[]>();
@@ -143,7 +146,7 @@ export function analyzeDecisionHistory(
       // Systematic bias: most deviations in the same direction
       const sameSign = deviations.filter((d) => Math.sign(d) === Math.sign(meanDev));
       if (sameSign.length >= deviations.length * cfg.learning.biasDirectionThreshold && Math.abs(meanDev) > SMALL_DEVIATION) {
-        const direction = meanDev > 0 ? "系统性高估" : "系统性低估";
+        const direction = meanDev > 0 ? tl.systematicOverestimate : tl.systematicUnderestimate;
         updates.push({
           type: "recalibrate",
           target: kpi,
@@ -152,13 +155,13 @@ export function analyzeDecisionHistory(
             sampleSize: deviations.length,
             strategy: strategyId,
           },
-          reason: `策略 "${strategyId}" 的 KPI "${kpi}" 存在${direction} (平均偏差 ${(meanDev * 100).toFixed(1)}%, 样本数${deviations.length})`,
+          reason: tl.systematicBias(strategyId, kpi, direction, (meanDev * 100).toFixed(1), deviations.length),
         });
 
         patternMemory.addPattern({
-          description: `策略 ${strategyId} 对 ${kpi} 存在${direction}`,
+          description: tl.strategyBiasPattern(strategyId, kpi, direction),
           condition: { strategyTypes: [strategyId] },
-          observation: `平均偏差 ${(meanDev * 100).toFixed(1)}%`,
+          observation: tl.avgDeviation((meanDev * 100).toFixed(1)),
           confidence: Math.min(0.9, 0.5 + deviations.length * 0.05),
           exampleDecisionId: recs[recs.length - 1].id,
         });

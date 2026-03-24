@@ -10,6 +10,8 @@ import type { MetaClawSkill, DCASMetadata } from "./types.js";
 import type { LLMClient } from "../llm/client.js";
 import { serializeWorldForLLM } from "../llm/world-serializer.js";
 import { generateId } from "../utils/id.js";
+import { getLocale } from "../i18n/index.js";
+import { promptsZh } from "../llm/prompts/zh.js";
 
 export interface TranslatorInput {
   /** The simulation result for this strategy */
@@ -108,41 +110,23 @@ async function generateInstructionWithLLM(
 ): Promise<string> {
   const { simulation, ranking, objective, world, domainContext } = input;
   const worldText = serializeWorldForLLM(world);
+  const priority = ranking.rank === 1 ? "HIGH" : ranking.rank <= 2 ? "MEDIUM" : "LOW";
 
-  const prompt = `你是一个策略翻译器。请将以下DCAS策略分析结果翻译为一个Agent可执行的行为指令。
+  const kpiEval = ranking.objectiveResult.kpiResults
+    .map((r) => `- ${r.name}: ${r.value} (${(r.normalizedScore * 100).toFixed(0)}%)`)
+    .join("\n");
 
-${domainContext}
-
-策略名称: ${simulation.strategyName}
-策略描述: ${simulation.strategyId}
-综合得分: ${ranking.score.toFixed(3)} (排名第${ranking.rank})
-
-策略执行步骤:
-${simulation.reasoningChain.join("\n")}
-
-世界状态摘要:
-${worldText}
-
-KPI评估:
-${ranking.objectiveResult.kpiResults.map((r) =>
-  `- ${r.name}: ${r.value} (${(r.normalizedScore * 100).toFixed(0)}%)`
-).join("\n")}
-
-请生成以下格式的行为指令（纯文本，不要JSON）:
-
-[DCAS STRATEGIC DIRECTIVE — ${ranking.rank === 1 ? "HIGH" : ranking.rank <= 2 ? "MEDIUM" : "LOW"}]
-
-## 目标
-{用一句话说明这个策略在优化什么}
-
-## 策略
-{具体的行为指令，3-7条，带数字}
-
-## 约束
-{不能做的事情，2-4条}
-
-## 上下文
-{关键背景信息，3-5条}`;
+  const prompt = promptsZh.translateStrategy(
+    domainContext,
+    simulation.strategyName,
+    simulation.strategyId,
+    ranking.score.toFixed(3),
+    ranking.rank,
+    simulation.reasoningChain.join("\n"),
+    worldText,
+    kpiEval,
+    priority,
+  );
 
   const response = await client.chat([{ role: "user", content: prompt }]);
   return response.content;
@@ -153,15 +137,16 @@ ${ranking.objectiveResult.kpiResults.map((r) =>
  */
 function generateInstructionFromTemplate(input: TranslatorInput): string {
   const { simulation, ranking, objective } = input;
+  const t = getLocale().translator;
   const priority = ranking.rank === 1 ? "HIGH" : ranking.rank <= 2 ? "MEDIUM" : "LOW";
 
   const kpiLines = ranking.objectiveResult.kpiResults
-    .map((r) => `- ${r.name}: 当前值${r.value}, 目标得分${(r.normalizedScore * 100).toFixed(0)}%`)
+    .map((r) => t.kpiLine(r.name, r.value, (r.normalizedScore * 100).toFixed(0)))
     .join("\n");
 
   const actionLines = simulation.diffs
     .filter((d) => d.cause === "direct")
-    .map((d, i) => `${i + 1}. 将 ${d.property} 从 ${JSON.stringify(d.oldValue)} 调整为 ${JSON.stringify(d.newValue)}`)
+    .map((d, i) => t.actionLine(i + 1, d.property, JSON.stringify(d.oldValue), JSON.stringify(d.newValue)))
     .join("\n");
 
   const constraintLines = objective.constraints
@@ -170,19 +155,19 @@ function generateInstructionFromTemplate(input: TranslatorInput): string {
 
   return `[DCAS STRATEGIC DIRECTIVE — ${priority}]
 
-## 目标
-${objective.kpis[0]?.name ?? "优化综合指标"}，综合得分目标 > ${(ranking.score * 1.1).toFixed(2)}
+${t.goalSection}
+${objective.kpis[0]?.name ?? t.defaultGoal}, target score > ${(ranking.score * 1.1).toFixed(2)}
 
-## 策略
-${actionLines || "1. 按照策略模拟结果执行"}
+${t.strategySection}
+${actionLines || t.defaultAction}
 
-## 约束
-${constraintLines || "- 遵守所有硬约束"}
+${t.constraintSection}
+${constraintLines || t.defaultConstraint}
 
-## 上下文
+${t.contextSection}
 ${kpiLines}
-- 该策略在${ranking.rank}个候选方案中排名第${ranking.rank}
-- 风险评估: 最好${ranking.riskProfile.bestCase.toFixed(3)}, 预期${ranking.riskProfile.expectedCase.toFixed(3)}, 最差${ranking.riskProfile.worstCase.toFixed(3)}`;
+${t.rankInfo(ranking.rank)}
+${t.riskInfo(ranking.riskProfile.bestCase.toFixed(3), ranking.riskProfile.expectedCase.toFixed(3), ranking.riskProfile.worstCase.toFixed(3))}`;
 }
 
 /**
@@ -190,13 +175,14 @@ ${kpiLines}
  */
 export function validateSkill(skill: MetaClawSkill): { valid: boolean; failures: string[] } {
   const failures: string[] = [];
+  const t = getLocale().translator;
 
   if (skill.instruction.length < 100) failures.push("instruction_too_short");
   if (skill.instruction.length > 5000) failures.push("instruction_too_long");
-  if (!skill.instruction.includes("## 目标")) failures.push("missing_goal_section");
-  if (!skill.instruction.includes("## 策略")) failures.push("missing_strategy_section");
-  if (!skill.instruction.includes("## 约束")) failures.push("missing_constraint_section");
-  if (!skill.instruction.includes("## 上下文")) failures.push("missing_context_section");
+  if (!skill.instruction.includes(t.goalSection)) failures.push("missing_goal_section");
+  if (!skill.instruction.includes(t.strategySection)) failures.push("missing_strategy_section");
+  if (!skill.instruction.includes(t.constraintSection)) failures.push("missing_constraint_section");
+  if (!skill.instruction.includes(t.contextSection)) failures.push("missing_context_section");
   if (!skill.tags.includes("dcas")) failures.push("missing_dcas_tag");
   if (!skill.dcas_metadata?.strategy_id) failures.push("missing_strategy_id");
   if (!skill.dcas_metadata?.objective?.primary_kpi) failures.push("missing_primary_kpi");

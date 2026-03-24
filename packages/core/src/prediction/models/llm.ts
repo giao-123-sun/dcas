@@ -6,6 +6,7 @@ import type { PredictionContext, PredictionModel, ProbabilityDistribution } from
 import { normalDistribution } from "../distribution.js";
 import type { LLMClient } from "../../llm/client.js";
 import { serializeWorldForLLM } from "../../llm/world-serializer.js";
+import { promptsZh } from "../../llm/prompts/zh.js";
 
 interface LLMPredictionResponse {
   mean: number;
@@ -37,28 +38,15 @@ export class LLMPredictionModel implements PredictionModel {
   async predict(context: PredictionContext): Promise<ProbabilityDistribution> {
     const worldText = serializeWorldForLLM(context.world);
     const actionText = context.action
-      ? `\n假设动作: ${context.action.description} (参数: ${JSON.stringify(context.action.parameters)})`
+      ? `\nHypothetical action: ${context.action.description} (params: ${JSON.stringify(context.action.parameters)})`
       : "";
 
-    const prompt = `${this.domainContext}
-
-${worldText}
-${actionText}
-
-请预测属性 "${context.targetProperty}" 的值。
-
-要求:
-1. 基于上述世界状态和领域知识进行推理
-2. 给出预测的均值(mean)、标准差(std)和置信度(confidence, 0-1)
-3. 简要说明推理过程
-
-返回JSON格式:
-{
-  "mean": <数值>,
-  "std": <数值，表示不确定性>,
-  "confidence": <0到1之间>,
-  "reasoning": "<一句话说明为什么这么预测>"
-}`;
+    const prompt = promptsZh.predictProperty(
+      this.domainContext,
+      worldText,
+      actionText,
+      context.targetProperty,
+    );
 
     try {
       const result = await this.client.chatJSON<LLMPredictionResponse>([

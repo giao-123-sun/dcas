@@ -8,6 +8,7 @@ import type { ObjectiveSpec } from "../objective/types.js";
 import type { Strategy, Action } from "./types.js";
 import type { LLMClient } from "../llm/client.js";
 import { serializeWorldForLLM, serializeObjectiveForLLM } from "../llm/world-serializer.js";
+import { promptsZh } from "../llm/prompts/zh.js";
 
 interface LLMStrategyResponse {
   strategies: Array<{
@@ -57,43 +58,15 @@ export async function generateStrategiesWithLLM(
   const targetEntity = world.getEntity(targetEntityId);
   if (!targetEntity) throw new Error(`Target entity ${targetEntityId} not found`);
 
-  const prompt = `${domainContext}
+  const entityInfo = `Target entity: [${targetEntityId.slice(0, 12)}] type=${targetEntity.type}`;
 
-${worldText}
-
-${objectiveText}
-
-目标实体: [${targetEntityId.slice(0, 8)}] 类型=${targetEntity.type}
-
-请生成${count}个不同的候选策略来优化上述目标函数。
-
-要求:
-1. 每个策略要有明确的名称和描述
-2. 每个策略包含3-6个具体的动作步骤
-3. 动作必须是对实体属性的具体修改（给出entity_type, property, value）
-4. 策略之间要有明显区别（保守/激进/创新等不同方向）
-5. 考虑约束条件，避免生成违反硬约束的策略
-6. 简要说明每个策略的推理逻辑
-
-返回JSON格式:
-{
-  "strategies": [
-    {
-      "id": "strategy_1",
-      "name": "策略名称",
-      "description": "一句话描述",
-      "reasoning": "为什么推荐这个策略",
-      "actions": [
-        {
-          "description": "动作描述",
-          "entity_type": "Case",
-          "property": "strategy",
-          "value": "settlement"
-        }
-      ]
-    }
-  ]
-}`;
+  const prompt = promptsZh.generateStrategies(
+    domainContext,
+    worldText,
+    objectiveText,
+    entityInfo,
+    count,
+  );
 
   const result = await client.chatJSON<LLMStrategyResponse>([
     { role: "user", content: prompt },

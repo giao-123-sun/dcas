@@ -7,6 +7,7 @@ import type { PredictionEngine } from "../prediction/engine.js";
 import type { ObjectiveSpec } from "../objective/types.js";
 import type { Strategy, RankedStrategies, RankedStrategy, SimulationResult, MonteCarloConfig } from "./types.js";
 import { simulateStrategy } from "./simulator.js";
+import { getLocale } from "../i18n/index.js";
 
 /**
  * Simulate multiple strategies and rank them by objective score.
@@ -58,31 +59,33 @@ function generateReasoning(
   rank: number,
   total: number,
 ): string {
+  const t = getLocale().comparator;
+
   if (result.objectiveResult.kpiResults.length === 0) {
-    return rank === 1 ? "综合得分最高" : `排名第${rank}/${total}`;
+    return rank === 1 ? t.topRanked(total) : t.ranked(rank, total);
   }
 
   const parts: string[] = [];
 
   if (result.objectiveResult.hardViolation) {
-    parts.push("违反硬约束，不推荐");
+    parts.push(t.hardViolation);
   } else if (rank === 1) {
-    parts.push(`在${total}个候选策略中综合得分最高`);
+    parts.push(t.topRanked(total));
   } else {
-    parts.push(`排名第${rank}/${total}`);
+    parts.push(t.ranked(rank, total));
   }
 
-  parts.push(`综合得分 ${result.objectiveResult.score.toFixed(3)}`);
+  parts.push(t.compositeScore(result.objectiveResult.score.toFixed(3)));
 
   // Highlight best KPIs
   const kpis = result.objectiveResult.kpiResults
     .sort((a, b) => b.normalizedScore - a.normalizedScore);
   if (kpis.length > 0) {
-    parts.push(`最优指标: ${kpis[0].name}(${(kpis[0].normalizedScore * 100).toFixed(0)}%)`);
+    parts.push(t.bestMetric(kpis[0].name, (kpis[0].normalizedScore * 100).toFixed(0)));
   }
 
   if (result.objectiveResult.softViolations > 0) {
-    parts.push(`${result.objectiveResult.softViolations}项软约束告警`);
+    parts.push(t.softViolations(result.objectiveResult.softViolations));
   }
 
   return parts.join("；");

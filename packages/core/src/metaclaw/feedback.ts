@@ -6,6 +6,7 @@
 import type { MetaClawFeedback } from "./types.js";
 import type { DCASConfig } from "../config.js";
 import { DEFAULT_CONFIG } from "../config.js";
+import { getLocale } from "../i18n/index.js";
 
 export interface LearningSignal {
   type: "recalibrate" | "ontology_suggestion" | "pattern";
@@ -20,6 +21,7 @@ export interface LearningSignal {
 export function processFeedback(feedback: MetaClawFeedback, config?: DCASConfig): LearningSignal[] {
   const cfg = config ?? DEFAULT_CONFIG;
   const signals: LearningSignal[] = [];
+  const tf = getLocale().feedback;
 
   // 1. Prediction deviation → model recalibration
   if (feedback.outcome) {
@@ -28,8 +30,11 @@ export function processFeedback(feedback: MetaClawFeedback, config?: DCASConfig)
       signals.push({
         type: "recalibrate",
         strategyId: feedback.dcas_strategy_id,
-        description: `预测偏差 ${(feedback.outcome.deviation * 100).toFixed(1)}%: ` +
-          `预测${feedback.outcome.predicted_value}, 实际${feedback.outcome.actual_value}`,
+        description: tf.predictionDeviation(
+          (feedback.outcome.deviation * 100).toFixed(1),
+          feedback.outcome.predicted_value,
+          feedback.outcome.actual_value,
+        ),
         data: {
           predicted: feedback.outcome.predicted_value,
           actual: feedback.outcome.actual_value,
@@ -45,7 +50,7 @@ export function processFeedback(feedback: MetaClawFeedback, config?: DCASConfig)
     signals.push({
       type: "ontology_suggestion",
       strategyId: feedback.dcas_strategy_id,
-      description: `MetaClaw自学习了新技能: "${skill.name}" — 可能暗示世界模型缺少某些要素`,
+      description: tf.newSkillHint(skill.name),
       data: {
         skill_name: skill.name,
         skill_instruction: skill.instruction,
@@ -59,7 +64,7 @@ export function processFeedback(feedback: MetaClawFeedback, config?: DCASConfig)
     signals.push({
       type: "pattern",
       strategyId: feedback.dcas_strategy_id,
-      description: `异常发现: ${anomaly.description}`,
+      description: tf.anomalyFound(anomaly.description),
       data: {
         anomaly_type: anomaly.type,
         possible_cause: anomaly.possible_cause,
@@ -72,7 +77,7 @@ export function processFeedback(feedback: MetaClawFeedback, config?: DCASConfig)
     signals.push({
       type: "pattern",
       strategyId: feedback.dcas_strategy_id,
-      description: `执行质量偏低 (avg_reward=${feedback.execution_summary.avg_reward.toFixed(2)})，策略可能难以执行`,
+      description: tf.lowQuality(feedback.execution_summary.avg_reward.toFixed(2)),
       data: {
         avg_reward: feedback.execution_summary.avg_reward,
         completion_status: feedback.execution_summary.completion_status,

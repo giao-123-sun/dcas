@@ -141,3 +141,7 @@ export type {
 
 // Utils
 export { generateId } from "./utils/id.js";
+
+// i18n
+export { setLocale, getLocale, zh, en } from "./i18n/index.js";
+export type { Locale } from "./i18n/index.js";

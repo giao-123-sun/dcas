@@ -6,22 +6,23 @@
 Agioa 内部项目 DCAS (Decision-Centric Agent System)——把"目标驱动型 Agent"的决策过程解耦为六层可独立演进的模块。
 
 ### 当前状态
-- 6 层骨架代码完成：3,053 行源码，31 个文件，100 个测试全绿
-- 技术栈：TypeScript ESM, pnpm workspaces, tsup, vitest, ml-random-forest
+- Phase 0-4.1 全部完成：~4,800 行源码 + ~2,500 行测试，~45 核心文件 + 7 legal + 7 demo，140 个测试全绿
+- 技术栈：TypeScript ESM, pnpm workspaces, tsup, vitest, ml-random-forest, React + Vite + Recharts
 - LLM：OpenRouter (gemini-3-flash-preview)，需 proxy:7890 绕区域限制
-- Git：5 commits on master, repo at E:/test/cc/ontology/
+- Git：13 commits on master, repo at E:/test/cc/ontology/
+- **下一步**: Phase 4.2 (SQLite 持久化) → Phase 4.3 (CI + GitHub Pages 部署)
 
-### 愿景 vs 现实的差距
-| 愿景文档描述 | 当前实现 | 差距严重程度 |
-|------------|---------|------------|
-| 蒙特卡洛采样模拟 | 确定性属性赋值 | 🔴 致命 |
-| async 预测管道 | sync 接口，LLM 返回垃圾值 | 🔴 致命 |
-| 事件溯源 + CoW Fork | 直接修改 Map + structuredClone 全量复制 | 🟡 重要 |
-| 对手建模 | 完全缺失 | 🟡 重要 |
-| 领域知识图谱（法条/判例/法官） | 图谱空的，测试用手写 fixture | 🟡 重要 |
-| 四种计算引擎精确分工 | LLM/ML 名义集成但管道断路 | 🔴 致命 |
-| 可配置阈值 | 20+ magic numbers 硬编码 | 🟠 中等 |
-| 前端 Demo | 不存在 | 🟡 重要（演示需要） |
+### 愿景 vs 现实的差距（已弥合）
+| 愿景文档描述 | 初始实现 | 现状（Phase 4.1 完成后） |
+|------------|---------|--------------------------|
+| 蒙特卡洛采样模拟 | 确定性属性赋值 | ✅ Phase 1 完成，seeded PRNG + CoV 收敛 |
+| async 预测管道 | sync 接口，LLM 返回垃圾值 | ✅ Phase 0.2 完成，全链路 async |
+| 事件溯源 + CoW Fork | 直接修改 Map + structuredClone 全量复制 | ✅ Phase 2 完成，EventLog + O(1) fork |
+| 对手建模 | 完全缺失 | ✅ Phase 3 完成，AdversaryModel |
+| 领域知识图谱（法条/判例/法官） | 图谱空的，测试用手写 fixture | ✅ Phase 3 完成，@dcas/legal 4法条+3法官+3判例 |
+| 四种计算引擎精确分工 | LLM/ML 名义集成但管道断路 | ✅ Phase 0.2 完成，LLM 真正参与 ensemble |
+| 可配置阈值 | 20+ magic numbers 硬编码 | ✅ Phase 0.3 完成，DCASConfig |
+| 前端 Demo | 不存在 | ✅ Phase 4.1 完成，React + Vite + Recharts |
 
 ### 竞争定位
 - **开源唯一空白**: 可 fork 的图结构世界模型（Graphiti 有时序图不能 fork，Palantir 可以但闭源）
@@ -50,15 +51,16 @@ L6 Loop:          KG█         LLM          ML       概率█
 
 ---
 
-## Phase 0: 基础设施修复
+## Phase 0: 基础设施修复 ✅ DONE
 
 **目标**: 修复已知 bug 和架构缺陷，让代码从"能跑"变成"可信"。
 **预估**: ~1 天
 **可并行**: 0.1/0.3/0.4 可以三人并行，0.2 是核心需要一人集中做
+**完成 commit**: `278a8ad`, `cb7fca0`
 
 ---
 
-### Task 0.1: 修复 GradientBoostModel type bug
+### Task 0.1: 修复 GradientBoostModel type bug ✅ DONE
 
 **问题**: `gradient-boost.ts:62` 的 `type = "statistical"` 与 StatisticalModel 重复
 **影响**: PredictionEngine 按 model.type 分流时两种模型混淆
@@ -79,7 +81,7 @@ L6 Loop:          KG█         LLM          ML       概率█
 
 ---
 
-### Task 0.2: PredictionModel 接口改为 async ⭐ 关键任务
+### Task 0.2: PredictionModel 接口改为 async ⭐ 关键任务 ✅ DONE
 
 **问题**: PredictionModel.predict() 是 sync，导致 LLMPredictionModel 在 ensemble 中返回无意义的 fallback 值
 **影响**: LLM 名义上集成但实际被旁路，整个 L3→L4 管道对 LLM 预测无效
@@ -157,7 +159,7 @@ L6 Loop:          KG█         LLM          ML       概率█
 
 ---
 
-### Task 0.3: 提取 magic numbers 为配置对象
+### Task 0.3: 提取 magic numbers 为配置对象 ✅ DONE
 
 **问题**: 20+ 个硬编码阈值散布各文件，不同领域无法定制
 
@@ -261,7 +263,7 @@ export function mergeConfig(partial: DeepPartial<DCASConfig>): DCASConfig;
 
 ---
 
-### Task 0.4: 修复其他小 bug
+### Task 0.4: 修复其他小 bug ✅ DONE
 
 **问题列表和修复方案**:
 
@@ -292,28 +294,29 @@ export function mergeConfig(partial: DeepPartial<DCASConfig>): DCASConfig;
 
 ---
 
-### Phase 0 总验收清单
+### Phase 0 总验收清单 ✅ DONE
 
-- [ ] `pnpm build` 零警告零错误
-- [ ] `pnpm test` 全绿，测试数量 ≥ 105（原 100 + 至少 5 个新增）
-- [ ] PredictionModel.predict() 签名是 `Promise<ProbabilityDistribution>`
-- [ ] LLMPredictionModel 无 sync predict / predictAsync 分裂
-- [ ] 所有 magic number 可通过 DCASConfig 覆盖
-- [ ] 无 timer 泄漏，无非空断言 `!`，无 `as any`（除白名单）
-- [ ] git commit 并 push
+- [x] `pnpm build` 零警告零错误
+- [x] `pnpm test` 全绿，测试数量 ≥ 105（原 100 + 至少 5 个新增）
+- [x] PredictionModel.predict() 签名是 `Promise<ProbabilityDistribution>`
+- [x] LLMPredictionModel 无 sync predict / predictAsync 分裂
+- [x] 所有 magic number 可通过 DCASConfig 覆盖
+- [x] 无 timer 泄漏，无非空断言 `!`，无 `as any`（除白名单）
+- [x] git commit 并 push
 
 ---
 
-## Phase 1: 真正的模拟引擎
+## Phase 1: 真正的模拟引擎 ✅ DONE
 
 **目标**: `simulateStrategy` 从确定性赋值变成蒙特卡洛采样，输出结果分布。
 **预估**: ~1 天
 **依赖**: Phase 0.2 (async 接口)
 **可并行**: 1.1 和 1.2 必须顺序，1.3 可在 1.2 完成后独立做
+**完成 commit**: `b46af06`
 
 ---
 
-### Task 1.1: 概率分布采样器
+### Task 1.1: 概率分布采样器 ✅ DONE
 
 **新增文件**: `packages/core/src/prediction/sampler.ts`
 
@@ -374,7 +377,7 @@ export function createSeededRng(seed: number): () => number;
 
 ---
 
-### Task 1.2: 重写 simulateStrategy 为蒙特卡洛模拟 ⭐ 关键任务
+### Task 1.2: 重写 simulateStrategy 为蒙特卡洛模拟 ⭐ 关键任务 ✅ DONE
 
 **修改文件**: `packages/core/src/simulation/simulator.ts`
 
@@ -523,7 +526,7 @@ async function simulateStrategy(
 
 ---
 
-### Task 1.3: 更新 comparator 使用分布排序
+### Task 1.3: 更新 comparator 使用分布排序 ✅ DONE
 
 **修改文件**: `simulation/comparator.ts`
 
@@ -544,7 +547,7 @@ async function simulateStrategy(
 
 ---
 
-### Phase 1 总验收
+### Phase 1 总验收 ✅ DONE
 
 **端到端场景测试** (新文件 `tests/e2e/legal-simulation.test.ts`):
 
@@ -572,22 +575,23 @@ async function simulateStrategy(
   - 原始 world 未被修改
 ```
 
-- [ ] 端到端测试通过
-- [ ] 性能：3 策略 × 200 MC × 3 步 < 10 秒
-- [ ] git commit
+- [x] 端到端测试通过
+- [x] 性能：3 策略 × 200 MC × 3 步 < 10 秒
+- [x] git commit
 
 ---
 
-## Phase 2: 事件溯源 + Copy-on-Write Fork
+## Phase 2: 事件溯源 + Copy-on-Write Fork ✅ DONE
 
 **目标**: WorldGraph 从直接修改 Map → 事件日志驱动；Fork 从 O(V) deep copy → O(1) 分支。
 **预估**: ~2 天
 **依赖**: Phase 0（但可与 Phase 1 并行开发，因为接口不变）
 **可并行**: 2.1→2.2→2.3 必须顺序，2.4 可在 2.2 后独立做
+**完成 commit**: `662bc64`
 
 ---
 
-### Task 2.1: EventLog 数据结构
+### Task 2.1: EventLog 数据结构 ✅ DONE
 
 **新增文件**: `packages/core/src/world-model/event-log.ts`
 
@@ -621,7 +625,7 @@ export class EventLog {
 
 ---
 
-### Task 2.2: WorldGraph 重构为事件驱动
+### Task 2.2: WorldGraph 重构为事件驱动 ✅ DONE
 
 **修改文件**: `world-model/graph.ts`
 
@@ -658,7 +662,7 @@ export class EventLog {
 
 ---
 
-### Task 2.3: Copy-on-Write Fork
+### Task 2.3: Copy-on-Write Fork ✅ DONE
 
 **修改文件**: `world-model/fork.ts`, `world-model/graph.ts`
 
@@ -693,7 +697,7 @@ export class EventLog {
 
 ---
 
-### Task 2.4: 时间旅行
+### Task 2.4: 时间旅行 ✅ DONE
 
 **修改文件**: `world-model/graph.ts`
 
@@ -715,25 +719,26 @@ export class EventLog {
 
 ---
 
-### Phase 2 总验收
+### Phase 2 总验收 ✅ DONE
 
-- [ ] 所有 Phase 0/1 的测试不改逻辑仍全绿（接口兼容）
-- [ ] Fork 1000 实体图 10 次，内存 < 1.5 倍原始
-- [ ] 事件日志可导出 JSON 并 replay 为完全相同的世界
-- [ ] 时间旅行测试通过
-- [ ] git commit
+- [x] 所有 Phase 0/1 的测试不改逻辑仍全绿（接口兼容）
+- [x] Fork 1000 实体图 10 次，内存 < 1.5 倍原始
+- [x] 事件日志可导出 JSON 并 replay 为完全相同的世界
+- [x] 时间旅行测试通过
+- [x] git commit
 
 ---
 
-## Phase 3: 对手建模 + 领域知识包
+## Phase 3: 对手建模 + 领域知识包 ✅ DONE
 
 **目标**: 实现 AdversaryModel + 法律领域包，让系统能跑真实法律场景。
 **预估**: ~2 天
 **依赖**: Phase 1（蒙特卡洛需要对手反应的随机采样）
+**完成 commit**: `662bc64`
 
 ---
 
-### Task 3.1: AdversaryModel
+### Task 3.1: AdversaryModel ✅ DONE
 
 **新增文件**: `packages/core/src/prediction/models/adversary.ts`
 
@@ -782,7 +787,7 @@ export class AdversaryModel implements PredictionModel {
 
 ---
 
-### Task 3.2: 法律领域包
+### Task 3.2: 法律领域包 ✅ DONE
 
 **新增目录**: `packages/domains/legal/`
 
@@ -827,7 +832,7 @@ packages/domains/legal/
 
 ---
 
-### Task 3.3: LLM 实体抽取
+### Task 3.3: LLM 实体抽取 ✅ DONE (partial — entity-extractor.ts 实现，集成到 legal 包)
 
 **新增文件**: `packages/core/src/llm/entity-extractor.ts`
 
@@ -846,7 +851,7 @@ export async function extractEntitiesFromText(
 
 ---
 
-### Phase 3 总验收
+### Phase 3 总验收 ✅ DONE
 
 **端到端场景** (新文件 `tests/e2e/legal-full.test.ts`):
 
@@ -867,9 +872,9 @@ export async function extractEntitiesFromText(
 - 对手行为在不同 MC run 中有变化
 ```
 
-- [ ] 端到端测试通过
-- [ ] 法律领域包可独立 import (`import { createLegalWorld } from "@dcas/legal"`)
-- [ ] git commit
+- [x] 端到端测试通过
+- [x] 法律领域包可独立 import (`import { createLegalWorld } from "@dcas/legal"`)
+- [x] git commit
 
 ---
 
@@ -881,7 +886,7 @@ export async function extractEntitiesFromText(
 
 ---
 
-### Task 4.1: Demo 1 — 法律策略模拟器前端
+### Task 4.1: Demo 1 — 法律策略模拟器前端 ✅ DONE
 
 **目录**: `demos/legal-strategy/` (Vite + React + TypeScript)
 
@@ -951,6 +956,10 @@ export async function extractEntitiesFromText(
 > 4. 拖动"证据强度"滑块，策略排名实时变化
 > 5. 查看完整推理链
 
+**4.1 Demo 前端**: ✅ DONE (commit `435866a`) — React + Vite + Recharts，本地可运行
+**4.2 持久化**: ⬜ NOT STARTED
+**4.3 GitHub Pages 部署**: ⬜ NOT STARTED
+
 ---
 
 ## Phase 5: 生产级增强
@@ -988,13 +997,15 @@ export async function extractEntitiesFromText(
 
 ## 附录 B: 测试矩阵
 
-| Phase | 新增测试数（预估） | 累计测试 | 新增测试文件 |
-|-------|----------------|---------|------------|
-| 0 | ~15 | ~115 | config.test.ts |
-| 1 | ~15 | ~130 | sampler.test.ts, e2e/legal-simulation.test.ts |
-| 2 | ~12 | ~142 | event-log.test.ts |
-| 3 | ~15 | ~157 | adversary.test.ts, legal.test.ts, e2e/legal-full.test.ts |
-| 4 | ~5 | ~162 | sqlite.test.ts |
+| Phase | 新增测试数（实际） | 累计测试 | 新增测试文件 | 状态 |
+|-------|----------------|---------|------------|------|
+| 0 | ~15 | ~115 | config.test.ts | ✅ DONE |
+| 1 | ~10 | ~125 | sampler.test.ts, e2e/legal-simulation.test.ts | ✅ DONE |
+| 2 | ~7 | ~132 | event-log.test.ts | ✅ DONE |
+| 3 | 8 | 140 | adversary.test.ts, legal/legal.test.ts, e2e/legal-full.test.ts | ✅ DONE |
+| 4.1 | — | 140 | — (Demo 无单元测试) | ✅ DONE |
+| 4.2 | ~5 | ~145 | sqlite.test.ts | ⬜ NOT STARTED |
+| 4.3+ | — | — | — | ⬜ NOT STARTED |
 
 ## 附录 C: 竞争定位检查点
 

@@ -2,8 +2,8 @@
 
 > 把"一个聪明人做决策时脑子里转的东西"拆成六个独立模块，让每个模块可以单独进化、可替换、可追溯。
 
-**版本**: 0.1.0 (核心引擎)
-**状态**: 六层核心完成，Demo 待开发
+**版本**: 0.2.0 (Phase 0-4 complete)
+**状态**: Phase 0-4 complete, Demo available, 140 tests
 **组织**: Agioa Internal
 
 ---
@@ -100,7 +100,8 @@ dcas/
 │       │   │   ├── relation.ts        #   关系工厂（create, clone）
 │       │   │   ├── graph.ts           #   WorldGraph 类 ★ 核心数据结构
 │       │   │   ├── cascade.ts         #   级联传播引擎
-│       │   │   └── fork.ts            #   世界分叉（deep copy）
+│       │   │   ├── fork.ts            #   Copy-on-Write 世界分叉
+│       │   │   └── event-log.ts       #   事件溯源日志（append-only, 时间旅行）
 │       │   │
 │       │   ├── objective/             # L2: 目标函数
 │       │   │   ├── types.ts           #   KPI, Constraint, Tradeoff 类型
@@ -110,11 +111,13 @@ dcas/
 │       │   │   ├── types.ts           #   ProbabilityDistribution, PredictionModel 接口
 │       │   │   ├── distribution.ts    #   normal/skewed/point/ensemble 分布工具
 │       │   │   ├── engine.ts          #   PredictionEngine（注册、ensemble、recalibrate）
+│       │   │   ├── sampler.ts         #   蒙特卡洛采样器（Box-Muller, seeded PRNG）
 │       │   │   └── models/
 │       │   │       ├── heuristic.ts   #   规则匹配预测（领域专家知识）
 │       │   │       ├── statistical.ts #   线性回归预测
 │       │   │       ├── gradient-boost.ts # 树模型集成预测（RandomForest）
-│       │   │       └── llm.ts         #   LLM预测（Gemini via OpenRouter）
+│       │   │       ├── llm.ts         #   LLM预测（Gemini via OpenRouter）
+│       │   │       └── adversary.ts   #   对手行为建模（历史模式 + optional LLM）
 │       │   │
 │       │   ├── simulation/            # L4: 模拟与策略
 │       │   │   ├── types.ts           #   Strategy, SimulationResult, RankedStrategies
@@ -141,24 +144,57 @@ dcas/
 │       │   │   ├── skill-manager.ts   #   技能文件管理 + 版本控制
 │       │   │   └── feedback.ts        #   反馈处理 → 学习信号提取
 │       │   │
+│       │   ├── config.ts              #   DCASConfig + DEFAULT_CONFIG + mergeConfig()
+│       │   │
+│       │   ├── i18n/                  # 国际化
+│       │   │   ├── zh.ts             #   中文字符串
+│       │   │   └── en.ts             #   英文字符串（setLocale(en) 切换）
+│       │   │
 │       │   ├── utils/
 │       │   │   └── id.ts              #   UUID 生成
 │       │   │
 │       │   └── index.ts               #   Barrel export（公共API）
 │       │
 │       ├── tests/                     # 测试（镜像 src 结构）
-│       │   ├── world-model/           #   graph.test.ts, cascade.test.ts, fork.test.ts
+│       │   ├── world-model/           #   graph.test.ts, cascade.test.ts, fork.test.ts, event-log.test.ts
 │       │   ├── objective/             #   objective.test.ts
-│       │   ├── prediction/            #   prediction.test.ts, gradient-boost.test.ts
+│       │   ├── prediction/            #   prediction.test.ts, gradient-boost.test.ts, sampler.test.ts, adversary.test.ts
 │       │   ├── simulation/            #   simulation.test.ts
 │       │   ├── memory/                #   memory.test.ts
 │       │   ├── loop/                  #   controller.test.ts
-│       │   └── metaclaw/              #   metaclaw.test.ts
+│       │   ├── metaclaw/              #   metaclaw.test.ts
+│       │   └── config.test.ts         #   DCASConfig 默认值 + mergeConfig 深合并
 │       │
 │       ├── package.json               #   @dcas/core 包配置
 │       ├── tsconfig.json
 │       ├── tsup.config.ts             #   构建配置（ESM + CJS + d.ts）
 │       └── vitest.config.ts           #   测试配置
+│
+│   └── domains/
+│       └── legal/                     # @dcas/legal — 法律领域包
+│           ├── src/
+│           │   ├── ontology.ts        #   Case/Party/Judge/Statute/Evidence/Precedent 类型
+│           │   ├── seed-data.ts       #   4 个法条、3 个法官、3 个判例预加载数据
+│           │   ├── cascade-rules.ts   #   法律级联规则（法官分配→胜诉率→预期赔偿）
+│           │   ├── predictions.ts     #   HeuristicModel 规则集
+│           │   ├── strategies.ts      #   策略模板（和解/抗辩/异议/分步）
+│           │   ├── objective.ts       #   法律场景目标函数
+│           │   └── index.ts
+│           └── tests/
+│               └── legal.test.ts      #   8 个法律领域集成测试
+│
+├── demos/
+│   └── legal-strategy/                # Demo 1 — 法律策略模拟器（React + Vite）
+│       ├── src/
+│       │   ├── App.tsx                #   主应用
+│       │   ├── InputPanel.tsx         #   参数输入（案件类型/标的额/证据强度滑块）
+│       │   ├── StrategyCard.tsx       #   策略结果卡片
+│       │   ├── ChartPanel.tsx         #   Recharts 柱状图 + 雷达图
+│       │   ├── ReasoningPanel.tsx     #   推理链展示
+│       │   └── crypto-shim.ts         #   node:crypto 浏览器兼容 shim
+│       ├── index.html
+│       ├── package.json
+│       └── vite.config.ts
 │
 ├── docs/
 │   └── diagrams/                      # Gemini生成的架构图
@@ -176,7 +212,7 @@ dcas/
 └── .gitignore
 ```
 
-**文件统计**: 38 个源文件, 10 个测试文件, 4 张架构图
+**文件统计**: ~45 个核心源文件, 7 个法律领域源文件, 7 个 Demo 源文件, 15 个测试文件, 4 张架构图 (~4,800 LOC 源码 + ~2,500 LOC 测试)
 
 ---
 
@@ -365,9 +401,9 @@ dcas/
 ### 总览
 
 ```
-Test Files:  10 passed (10)
-Tests:       100 passed (100)
-Duration:    ~6.5s
+Test Files:  15 passed (15)
+Tests:       140 passed (140)
+Duration:    ~8s
 ```
 
 ### 按模块明细
@@ -376,14 +412,19 @@ Duration:    ~6.5s
 |---------|-------|------|---------|
 | `world-model/graph.test.ts` | 13 | ✅ | CRUD 实体/关系、类型查询、邻居遍历、属性更新、删除级联清理 |
 | `world-model/cascade.test.ts` | 7 | ✅ | 单跳传播、多跳传播、maxDepth 限制、环检测、方向过滤、effect 跳过 |
-| `world-model/fork.test.ts` | 7 | ✅ | 完整复制、隔离性、cascade rules 继承、标签、并行fork |
+| `world-model/fork.test.ts` | 7 | ✅ | CoW fork 隔离性、O(1) 分叉、首次写触发拷贝、cascade rules 继承、并行fork |
+| `world-model/event-log.test.ts` | — | ✅ | append/query/时间旅行/序列化反序列化 |
 | `objective/objective.test.ts` | 7 | ✅ | KPI 计算、硬约束归零、软约束记录、阈值告警、世界对比、Tradeoff 调整 |
 | `prediction/prediction.test.ts` | 15 | ✅ | 正态/偏态/点估计分布、ensemble 合并、空ensemble、HeuristicModel 规则匹配、StatisticalModel 线性预测、PredictionEngine 注册/ensemble/recalibrate/predictAll |
 | `prediction/gradient-boost.test.ts` | 6 | ✅ | 训练+预测、未训练fallback、feature importance、ensemble集成、最少样本校验 |
-| `simulation/simulation.test.ts` | 12 | ✅ | 单策略模拟、objective评估、cascade触发、推理链、风险档案、条件触发、预测引擎集成、多策略排序、硬约束排名、推理文本、原始世界不变 |
+| `prediction/sampler.test.ts` | — | ✅ | seeded RNG 可复现、Box-Muller 统计验证、std=0 退化为确定性、经验分布采样 |
+| `prediction/adversary.test.ts` | — | ✅ | 历史行为建模、LLM fallback、对手行动采样 |
+| `simulation/simulation.test.ts` | 12+ | ✅ | 蒙特卡洛多跑相同 seed 可复现、不同 seed 结果有差、std>0、提前收敛、backward compat、原始世界不变 |
 | `metaclaw/metaclaw.test.ts` | 13 | ✅ | 世界序列化、Skill翻译、验证、优先级、SkillManager CRUD/归档/反馈/列表、Feedback处理（偏差/新技能/异常/低质量） |
 | `memory/memory.test.ts` | 12 | ✅ | DecisionStore CRUD/outcome/查询/recent、PatternMemory 添加/强化/去重/查询/置信度、Learning 准确→加分/偏差→校准/意外→建议/系统性偏差检测 |
 | `loop/controller.test.ts` | 8 | ✅ | KPI告警检测、monitoring模式推荐、无告警静默、reactive模式强制运行、autonomous自动执行、DecisionStore集成、模式切换、启停 |
+| `config.test.ts` | — | ✅ | DEFAULT_CONFIG 字段完整、mergeConfig 深合并、局部覆盖不影响其他默认值 |
+| `legal/legal.test.ts` | 8 | ✅ | 法律 ontology、seed data 加载、cascade 级联（法官分配→胜诉率）、策略模板、目标函数评分 |
 
 ### 未覆盖的测试场景
 
@@ -407,85 +448,122 @@ Duration:    ~6.5s
 | Day 4 | LLM 集成 (Gemini) + MetaClaw 翻译层 | 10 | 13 | 74 | `e095b06` |
 | +GB | GradientBoost 预测模型 | 2 | 6 | 80 | `1e9ad2a` |
 | Day 7 | L5 Memory & Learning + L6 Decision Loop | 8 | 20 | 100 | `9d7dfee` |
+| Phase 0 | 基础设施修复（async pipeline, config, bug fixes） | +5 | +~15 | ~115 | `278a8ad`, `cb7fca0` |
+| Phase 1 | Monte Carlo 模拟引擎（sampler, CoV 收敛） | +3 | +~10 | ~125 | `b46af06` |
+| Phase 2 | 事件溯源 + CoW Fork + 时间旅行 | +2 | +~7 | ~132 | `662bc64` |
+| Phase 3 | 对手建模 + @dcas/legal 领域包 | +8 | +8 | ~140 | `662bc64` |
+| Phase 4.1 | Demo 前端（React + Vite + Recharts） | +7 | — | 140 | `435866a` |
+| Code Review | 8 个 critical/high bug 修复 | — | — | 140 | `9ac8e89` |
+| i18n | 全部中文字符串提取到 i18n + LLM prompts | +3 | — | 140 | `d73d651` |
 
 ### 当前状态
 
 ```
-✅ L1 World Model        — 完成
+✅ L1 World Model        — 完成（含 EventLog + CoW Fork + 时间旅行）
 ✅ L2 Objective Function  — 完成
-✅ L3 Prediction Engine   — 完成（4种模型）
-✅ L4 Simulation & Strategy — 完成（含LLM策略生成）
+✅ L3 Prediction Engine   — 完成（4种模型 + 对手建模）
+✅ L4 Simulation & Strategy — 完成（蒙特卡洛 N-run + LLM策略生成）
 ✅ L5 Memory & Learning   — 完成
 ✅ L6 Decision Loop       — 完成
 ✅ LLM 集成              — 完成（OpenRouter/Gemini）
 ✅ MetaClaw 集成         — 完成（翻译+管理+反馈）
 ✅ GradientBoost 模型    — 完成
+✅ 基础设施（Phase 0）    — 完成（async pipeline, DCASConfig, bug fixes）
+✅ Monte Carlo 模拟引擎  — 完成（seeded PRNG, Box-Muller, CoV 早停）
+✅ 事件溯源 + CoW Fork   — 完成
+✅ 对手建模              — 完成（AdversaryModel）
+✅ @dcas/legal 领域包    — 完成（4法条 + 3法官 + 3判例 + 级联规则）
+✅ Demo 1: 法律策略模拟器 — 完成（React + Vite + Recharts）
+✅ i18n 国际化           — 完成（zh/en 双语 + LLM prompt 模板提取）
+✅ Code Review 修复      — 完成（8 个 critical/high bug）
 
-⬜ Demo 1: 法律策略模拟器   — 未开始
-⬜ Demo 2: 内容运营决策引擎  — 未开始
-⬜ Demo 3: 投资组合沙箱     — 未开始
-⬜ 领域特化包 (legal/content/investment) — 未开始
-⬜ 真实 MetaClaw 集成测试   — 未开始
-⬜ GitHub Pages 部署       — 未开始
+⬜ Demo 2: 内容运营决策引擎  — 未开始（Phase 5.3）
+⬜ Demo 3: 投资组合沙箱     — 未开始（Phase 5.4）
+⬜ 领域包 (content/investment) — 未开始
+⬜ SQLite 持久化层           — 未开始（Phase 4.2）
+⬜ GitHub Pages 部署 + CI    — 未开始（Phase 4.3）
+⬜ 真实 MetaClaw 集成测试     — 未开始（Phase 5.1）
+⬜ HTTP API 服务             — 未开始（Phase 5.2）
+⬜ Ontology 自动发现         — 未开始（Phase 5.5）
 ```
 
 ---
 
 ## 8. 未开发功能
 
-### 按优先级排列
+### 已完成（Phase 0–4.1）
 
-**P0: 近期必做**
+| 功能 | 完成 Commit |
+|------|------------|
+| Demo 1: 法律策略模拟器（React + Vite + Recharts） | `435866a` |
+| @dcas/legal 领域包（法条/法官/判例/级联/策略模板） | `662bc64` |
+| Monte Carlo 模拟引擎（sampler, seeded PRNG, CoV 收敛） | `b46af06` |
+| 事件溯源 EventLog + Copy-on-Write Fork + 时间旅行 | `662bc64` |
+| 对手建模 AdversaryModel | `662bc64` |
+| Async predict→simulate→compare→decide 管道 | `cb7fca0` |
+| DCASConfig magic numbers 提取 | `cb7fca0` |
+| i18n 国际化（zh/en + LLM prompt 模板） | `d73d651` |
+| Code Review 8 项 critical/high bug 修复 | `9ac8e89` |
 
-| 功能 | 说明 | 阻塞什么 |
-|------|------|---------|
-| Demo 1: 法律策略模拟器 | React + Vite 前端，调用 @dcas/core | 产品演示 |
-| 领域包 `packages/domains/legal/` | 法律 Ontology (Case, Judge, Statute)、预测规则、策略模板 | Demo 1 |
-| LLM 端到端测试 | 用真实 Gemini API 跑一次完整的预测+策略生成 | 验证 LLM 集成有效 |
+### 待开发（按优先级）
 
-**P1: 中期增强**
+**P0: 近期**
 
-| 功能 | 说明 |
-|------|------|
-| Demo 2: 内容运营 | 自媒体决策引擎，展示目标函数驱动 |
-| Demo 3: 投资沙箱 | 展示世界分叉 + 多场景对比 |
-| 持久化存储 | SQLite / better-sqlite3 替代内存 Map |
-| Copy-on-Write Fork | 大图场景下的性能优化 |
-| Adversary Model | 对手建模预测器（博弈场景） |
-| MetaClaw 实际对接 | pip install metaclaw + 真实文件系统通信 |
+| 功能 | 说明 | Phase |
+|------|------|-------|
+| SQLite 持久化层 | better-sqlite3 替代内存 Map，DecisionStore/PatternMemory 持久化 | 4.2 |
+| GitHub Actions CI + GitHub Pages 部署 | build→test→deploy 自动化，Demo 公开可访问 | 4.3 |
+
+**P1: 中期**
+
+| 功能 | 说明 | Phase |
+|------|------|-------|
+| MetaClaw 真实对接 | pip install metaclaw + 真实技能文件通信 | 5.1 |
+| HTTP API 服务 | DCAS 作为独立 REST 服务 | 5.2 |
+| Demo 2: 内容运营 | 自媒体决策引擎，目标函数驱动 | 5.3 |
+| Demo 3: 投资沙箱 | 世界分叉 + 多场景对比可视化 | 5.4 |
 
 **P2: 远期愿景**
 
-| 功能 | 说明 |
-|------|------|
-| HTTP API 服务 | DCAS 作为独立服务，REST/gRPC 接口 |
-| Event Bus | Redis/NATS 消息队列，支持多实例 |
-| Ontology 自动发现 | 从数据中半自动发现新的实体类型和关系 |
-| 跨域迁移学习 | 法律领域的"对手建模"模式迁移到商业谈判 |
-| 信任仪表盘 | 可视化"系统推荐可信度" |
+| 功能 | 说明 | Phase |
+|------|------|-------|
+| Ontology 自动发现 | LLM 辅助从数据半自动发现新实体类型和关系 | 5.5 |
+| Event Bus | Redis/NATS 消息队列，支持多实例 | — |
+| 跨域迁移学习 | 法律领域的对手建模模式迁移到商业谈判 | — |
+| 信任仪表盘 | 可视化"系统推荐可信度" | — |
 
 ---
 
 ## 9. 已知问题与技术债务
 
-### 技术问题
+### 已修复（Phase 0 + Code Review）
 
-| 问题 | 严重程度 | 说明 | 解决方案 |
+| 问题 | 修复方式 | Commit |
+|------|---------|--------|
+| PredictionModel.predict() 同步接口 → LLM 被旁路 | 全链路改为 async，LLM 真正参与 ensemble | `cb7fca0` |
+| 20+ magic numbers 硬编码 | 全部提取到 DCASConfig + mergeConfig() | `cb7fca0` |
+| GradientBoostModel.type = "statistical" 与 StatisticalModel 冲突 | type 改为 "gradient_boost" | `278a8ad` |
+| controller.start() 重复调用泄漏 timer | start() 开头加 clearInterval 保护 | `cb7fca0` |
+| graph.ts 多处 `!` 非空断言 | 替换为 null-check guard 或 throw | `cb7fca0` |
+| cascade visited key 用 `:` 分隔可能碰撞 | 改为 `\0` null byte 分隔 | `cb7fca0` |
+| 空数组越界访问（Code Review #1） | 边界检查修复 | `9ac8e89` |
+| 静默 catch 块吞掉错误（Code Review #2） | 改为 re-throw 或 log | `9ac8e89` |
+| sort() 副作用修改原数组（Code Review #3） | 改为 [...arr].sort() | `9ac8e89` |
+
+### 现存技术债务
+
+| 问题 | 严重程度 | 说明 | 解决方向 |
 |------|---------|------|---------|
+| `as any` in gradient-boost.ts | 低 | ml-random-forest 内部类型无导出，必须 cast | 等上游导出类型或写本地 d.ts |
+| LLM prompt 注入风险 | 中 | chatJSON 的 prompt 未对用户输入做 sanitization | Phase 4.2 前添加输入过滤 |
+| chatJSON 无运行时 schema 校验 | 中 | LLM 返回 JSON 只做 parse，无 shape 验证 | 引入 zod 或 ajv 校验 |
+| predictProperties 是 string[] | 低 | 无法精确指定 entityId，MC 采样时靠启发式匹配实体 | 改为 `{entityId, property}[]` |
+| EventLog 不记录 entity/relation add/remove | 低 | 只记录属性变更，新增/删除实体不进日志 | 补充 entity-level event types |
+| Demo 无 debounce / AbortController | 低 | 快速拖动滑块触发多次模拟并发请求 | 加 500ms debounce + AbortController |
 | esbuild 构建警告 | 低 | pnpm 提示 `Ignored build scripts: esbuild` | 已配置 `onlyBuiltDependencies`，不影响功能 |
-| CRLF 警告 | 低 | Windows 环境 Git 自动转换行尾 | 可添加 `.gitattributes` |
-| LLM predict() 同步限制 | 中 | `PredictionModel.predict()` 是同步接口，LLM 调用是异步。当前 sync predict() 返回 fallback | 需要在 Engine 层支持 async predict |
-| 内存存储无持久化 | 中 | 所有数据在进程退出后丢失 | P1: 添加 SQLite 后端 |
-| Cascade 目标属性硬编码 | 低 | `CascadeEffectResult` 已支持 `targetProperty`，但部分测试仍用同名属性 | 已解决，仅是测试简化 |
-
-### 设计债务
-
-| 问题 | 说明 |
-|------|------|
-| PredictionModel 同步接口 | 限制了 LLM 和其他异步模型。需要引入 `predictAsync()` 到接口定义 |
-| ObjectiveSpec.kpis[].compute 是闭包 | 无法序列化/持久化。如果需要跨进程传递 ObjectiveSpec，需要用 DSL 或注册式 |
-| PatternMemory 相似度判断过于简单 | 当前仅比较 entityTypes 排序 + observation 字符串精确匹配 |
-| DecisionStore 无索引优化 | 全量扫描 + filter。千条以上需要添加索引 |
+| 内存存储无持久化 | 中 | 所有数据在进程退出后丢失 | Phase 4.2: SQLite 后端 |
+| ObjectiveSpec.kpis[].compute 是闭包 | 低 | 无法序列化/持久化跨进程传递 | 用 DSL 或注册式函数替代 |
+| DecisionStore 无索引优化 | 低 | 全量扫描 + filter，千条以上需优化 | Phase 4.2 SQLite 自带索引 |
 
 ---
 
@@ -582,6 +660,6 @@ const updates = learnFromOutcome(store.get(record.id)!, patterns);
 
 ---
 
-*Document Version: 1.0*
-*Last Updated: 2026-03-21*
-*Generated with assistance from Claude Opus 4.6*
+*Document Version: 2.0*
+*Last Updated: 2026-03-24*
+*Generated with assistance from Claude Sonnet 4.6*

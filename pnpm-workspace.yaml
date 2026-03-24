@@ -4,3 +4,4 @@ packages:
   - "demos/*"
 onlyBuiltDependencies:
   - "esbuild"
+  - "better-sqlite3"

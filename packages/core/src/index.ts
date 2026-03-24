@@ -139,6 +139,9 @@ export type {
   ControllerAction,
 } from "./loop/controller.js";
 
+// Storage adapters
+export { SQLiteDecisionStore, SQLitePatternMemory } from "./storage/sqlite-adapter.js";
+
 // Utils
 export { generateId } from "./utils/id.js";
 

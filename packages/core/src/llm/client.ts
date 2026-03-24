@@ -107,6 +107,7 @@ export class LLMClient {
       ...messages,
     ];
 
+    let lastError: Error | undefined;
     for (let attempt = 0; attempt <= retries; attempt++) {
       const response = await this.chat(augmented);
       try {
@@ -116,13 +117,12 @@ export class LLMClient {
           .replace(/\s*```\s*$/, "")
           .trim();
         return JSON.parse(cleaned) as T;
-      } catch {
-        if (attempt === retries) {
-          throw new Error(`Failed to parse LLM JSON after ${retries + 1} attempts. Last response: ${response.content.slice(0, 200)}`);
-        }
+      } catch (e) {
+        lastError = e instanceof Error ? e : new Error(String(e));
+        if (attempt === retries) break;
       }
     }
-    throw new Error("Unreachable");
+    throw new Error(`Failed to parse LLM JSON after ${retries + 1} attempts: ${lastError?.message}`);
   }
 
   private async fetchWithProxy(url: string, init: RequestInit): Promise<Response> {

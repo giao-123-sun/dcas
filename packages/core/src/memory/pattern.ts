@@ -103,8 +103,8 @@ export class PatternMemory {
     for (const p of this.patterns.values()) {
       // Simple similarity: same entity types + similar observation
       const sameTypes =
-        JSON.stringify(p.condition.entityTypes?.sort()) ===
-        JSON.stringify(condition.entityTypes?.sort());
+        JSON.stringify([...(p.condition.entityTypes ?? [])].sort()) ===
+        JSON.stringify([...(condition.entityTypes ?? [])].sort());
       const similarObs = p.observation === observation;
       if (sameTypes && similarObs) return p;
     }

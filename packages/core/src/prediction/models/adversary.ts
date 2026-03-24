@@ -138,7 +138,8 @@ ${actionText}
         Math.min(result.confidence, 0.8),
         this.id,
       );
-    } catch {
+    } catch (e) {
+      console.warn(`[${this.id}] prediction failed, using fallback:`, e instanceof Error ? e.message : e);
       return normalDistribution(
         this.profile.defaultTendency.mean,
         this.profile.defaultTendency.std,

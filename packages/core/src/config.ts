@@ -69,7 +69,7 @@ export const DEFAULT_CONFIG: DCASConfig = {
 };
 
 export function mergeConfig(partial: DeepPartial<DCASConfig>): DCASConfig {
-  const result = JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as DCASConfig;
+  const result = structuredClone(DEFAULT_CONFIG) as DCASConfig;
   function deepMerge(target: any, source: any) {
     for (const key of Object.keys(source)) {
       if (source[key] && typeof source[key] === "object" && !Array.isArray(source[key])) {

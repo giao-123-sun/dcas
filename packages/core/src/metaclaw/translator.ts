@@ -54,15 +54,15 @@ export async function translateToSkill(
     : generateInstructionFromTemplate(input);
 
   // Build metadata
-  const primaryKPI = objective.kpis[0];
-  const primaryKPIResult = ranking.objectiveResult.kpiResults[0];
+  const primaryKPI = objective.kpis.length > 0 ? objective.kpis[0] : undefined;
+  const primaryKPIResult = ranking.objectiveResult.kpiResults.length > 0 ? ranking.objectiveResult.kpiResults[0] : undefined;
 
   const metadata: DCASMetadata = {
     strategy_id: strategyId,
     objective: {
-      primary_kpi: primaryKPI.id,
-      direction: primaryKPI.direction,
-      target: primaryKPI.target,
+      primary_kpi: primaryKPI?.id ?? "",
+      direction: primaryKPI?.direction ?? "maximize",
+      target: primaryKPI?.target,
       confidence: ranking.riskProfile.expectedCase > 0 ? 0.7 : 0.3,
     },
     world_context: {

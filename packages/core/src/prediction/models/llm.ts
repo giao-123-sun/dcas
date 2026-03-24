@@ -72,6 +72,7 @@ ${actionText}
         this.id,
       );
     } catch (e) {
+      console.warn(`[${this.id}] prediction failed, using fallback:`, e instanceof Error ? e.message : e);
       // Fallback on LLM failure: wide uncertainty
       return normalDistribution(0, 10000, 0.1, this.id);
     }

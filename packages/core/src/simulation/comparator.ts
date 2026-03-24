@@ -58,6 +58,10 @@ function generateReasoning(
   rank: number,
   total: number,
 ): string {
+  if (result.objectiveResult.kpiResults.length === 0) {
+    return rank === 1 ? "综合得分最高" : `排名第${rank}/${total}`;
+  }
+
   const parts: string[] = [];
 
   if (result.objectiveResult.hardViolation) {

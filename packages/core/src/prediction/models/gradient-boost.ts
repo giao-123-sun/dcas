@@ -6,6 +6,7 @@
 import { RandomForestRegression } from "ml-random-forest";
 import type { PredictionContext, PredictionModel, ProbabilityDistribution } from "../types.js";
 import { normalDistribution } from "../distribution.js";
+import { createSeededRng } from "../sampler.js";
 import type { WorldGraph } from "../../world-model/graph.js";
 import type { DCASConfig } from "../../config.js";
 import { DEFAULT_CONFIG as DCAS_DEFAULT_CONFIG } from "../../config.js";
@@ -155,12 +156,13 @@ export class GradientBoostModel implements PredictionModel {
     const importances: number[] = [];
 
     for (let fi = 0; fi < this.features.length; fi++) {
-      // Shuffle feature fi
+      // Shuffle feature fi using a seeded RNG for reproducibility
+      const rng = createSeededRng(this.config.seed + fi);
       const permutedX = baseX.map((row) => [...row]);
       const values = permutedX.map((row) => row[fi]);
-      // Simple shuffle
+      // Seeded shuffle
       for (let i = values.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = Math.floor(rng() * (i + 1));
         [values[i], values[j]] = [values[j], values[i]];
       }
       permutedX.forEach((row, i) => { row[fi] = values[i]; });

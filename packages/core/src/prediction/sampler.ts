@@ -59,6 +59,9 @@ export function coefficientOfVariation(values: number[]): number {
  * Build a ProbabilityDistribution from empirical samples.
  */
 export function empiricalDistribution(values: number[], modelId = "simulation"): ProbabilityDistribution {
+  if (values.length === 0) {
+    return { mean: 0, median: 0, std: 0, percentiles: { p5: 0, p25: 0, p75: 0, p95: 0 }, confidence: 0, modelId };
+  }
   const sorted = [...values].sort((a, b) => a - b);
   const n = sorted.length;
   const mean = values.reduce((s, v) => s + v, 0) / n;

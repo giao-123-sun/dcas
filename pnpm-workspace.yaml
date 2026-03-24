@@ -1,5 +1,6 @@
 packages:
   - "packages/*"
   - "packages/domains/*"
+  - "demos/*"
 onlyBuiltDependencies:
   - "esbuild"

@@ -4,3 +4,4 @@ export { seedContentData } from "./seed-data.js";
 export { generateContentStrategies } from "./strategies.js";
 export { createEngagementPredictor, createGrowthPredictor } from "./predictions.js";
 export { createContentObjective } from "./objective.js";
+export { seedContentSelfModel } from "./self-model.js";

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { WorldGraph, PredictionEngine, compareStrategies } from "@dcas/core";
+import { WorldGraph, PredictionEngine, compareStrategies, SelfModel } from "@dcas/core";
 import { seedContentData } from "../src/seed-data.js";
+import { seedContentSelfModel } from "../src/self-model.js";
 import { generateContentStrategies } from "../src/strategies.js";
 import { createEngagementPredictor, createGrowthPredictor } from "../src/predictions.js";
 import { createContentObjective } from "../src/objective.js";
@@ -67,5 +68,29 @@ describe("Content Domain", () => {
     const orig = world.getEntity(seed.plan.id)!.properties.strategy;
     await compareStrategies(world, generateContentStrategies(seed.plan.id), createContentObjective());
     expect(world.getEntity(seed.plan.id)!.properties.strategy).toBe(orig);
+  });
+});
+
+describe("Content Self-Model", () => {
+  it("should create team with members", () => {
+    const { world } = createContentWorld();
+    const selfData = seedContentSelfModel(world);
+    expect(world.getEntitiesByType("Self")).toHaveLength(1);
+    expect(world.getEntitiesByType("TeamMember")).toHaveLength(2);
+  });
+
+  it("should identify content creation capabilities", () => {
+    const { world } = createContentWorld();
+    seedContentSelfModel(world);
+    const self = new SelfModel(world);
+    expect(self.hasCapability("content", "deep_content", 0.8)).toBe(true);
+    expect(self.hasCapability("content", "short_video_production", 0.5)).toBe(false);
+  });
+
+  it("should calculate team available hours", () => {
+    const { world } = createContentWorld();
+    seedContentSelfModel(world);
+    const self = new SelfModel(world);
+    expect(self.getAvailableHours()).toBe(45); // 30 + 15
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { WorldGraph, PredictionEngine, compareStrategies } from "@dcas/core";
+import { WorldGraph, PredictionEngine, compareStrategies, SelfModel } from "@dcas/core";
 import { seedInvestmentData } from "../src/seed-data.js";
+import { seedInvestmentSelfModel } from "../src/self-model.js";
 import { generateInvestmentStrategies } from "../src/strategies.js";
 import { createSharpePredictor, createDrawdownPredictor } from "../src/predictions.js";
 import { createInvestmentObjective } from "../src/objective.js";
@@ -81,5 +82,33 @@ describe("Investment Domain", () => {
     const origSharpe = world.getEntity(seed.portfolio.id)!.properties.current_sharpe;
     await compareStrategies(world, generateInvestmentStrategies(seed.portfolio.id), createInvestmentObjective());
     expect(world.getEntity(seed.portfolio.id)!.properties.current_sharpe).toBe(origSharpe);
+  });
+});
+
+describe("Investment Self-Model", () => {
+  it("should create fund with team", () => {
+    const { world } = createInvestmentWorld();
+    const selfData = seedInvestmentSelfModel(world);
+    expect(world.getEntitiesByType("Self")).toHaveLength(1);
+    expect(world.getEntitiesByType("TeamMember")).toHaveLength(2);
+    expect(selfData.fund.properties.aum).toBe(50000000);
+  });
+
+  it("should identify risk management as top skill", () => {
+    const { world } = createInvestmentWorld();
+    const selfData = seedInvestmentSelfModel(world);
+    const self = new SelfModel(world);
+    const best = self.getBestMemberForTask("investment", "risk_management");
+    expect(best?.id).toBe(selfData.pm.id);
+  });
+
+  it("should detect derivatives capability gap", () => {
+    const { world } = createInvestmentWorld();
+    seedInvestmentSelfModel(world);
+    const self = new SelfModel(world);
+    const gaps = self.getCapabilityGaps([
+      { domain: "investment", taskType: "derivatives", minProficiency: 0.7 },
+    ]);
+    expect(gaps.length).toBeGreaterThan(0);
   });
 });

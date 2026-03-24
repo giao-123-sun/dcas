@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { WorldGraph, PredictionEngine, compareStrategies, forkGraph } from "@dcas/core";
+import { WorldGraph, PredictionEngine, compareStrategies, forkGraph, SelfModel, checkFeasibility, selfModelCascadeRules } from "@dcas/core";
 import { seedLegalData } from "../src/seed-data.js";
 import { legalCascadeRules } from "../src/cascade-rules.js";
 import { generateLegalStrategies } from "../src/strategies.js";
 import { createRecoveryPredictor, createCostPredictor } from "../src/predictions.js";
 import { createLegalObjective } from "../src/objective.js";
 import { ENTITY_TYPES, RELATION_TYPES } from "../src/ontology.js";
+import { seedLegalSelfModel } from "../src/self-model.js";
 
 function createLegalWorld() {
   const world = new WorldGraph();
@@ -158,5 +159,55 @@ describe("Legal Domain", () => {
     await compareStrategies(world, strategies, objective);
 
     expect(world.getEntity(caseEntity.id)!.properties.strategy).toBe(originalStrategy);
+  });
+});
+
+describe("Legal Self-Model", () => {
+  it("should create firm with team members", () => {
+    const { world } = createLegalWorld();
+    const selfData = seedLegalSelfModel(world);
+    expect(world.getEntitiesByType("Self")).toHaveLength(1);
+    expect(world.getEntitiesByType("TeamMember")).toHaveLength(2);
+    expect(selfData.firm.properties.name).toBe("示例律师事务所");
+  });
+
+  it("should identify best negotiator", () => {
+    const { world } = createLegalWorld();
+    const selfData = seedLegalSelfModel(world);
+    const self = new SelfModel(world);
+    const best = self.getBestMemberForTask("labor_dispute", "negotiation");
+    expect(best?.id).toBe(selfData.zhangLawyer.id);
+  });
+
+  it("should detect maritime law capability gap", () => {
+    const { world } = createLegalWorld();
+    seedLegalSelfModel(world);
+    expect(world.getEntitiesByType("CapabilityGap")).toHaveLength(1);
+  });
+
+  it("should check strategy feasibility", async () => {
+    const { world, seed } = createLegalWorld();
+    seedLegalSelfModel(world);
+    const { caseEntity } = addCase(world, seed);
+    const strategies = generateLegalStrategies(caseEntity.id, 120000);
+    const self = new SelfModel(world);
+
+    const result = checkFeasibility(strategies[0], self, world, {
+      requiredSkills: [{ domain: "labor_dispute", taskType: "negotiation", minProficiency: 0.5 }],
+      estimatedHours: 15,
+      estimatedCost: 10000,
+    });
+    expect(result.feasible).toBe(true);
+  });
+
+  it("should cascade member availability to firm", () => {
+    const { world } = createLegalWorld();
+    const selfData = seedLegalSelfModel(world);
+    for (const rule of selfModelCascadeRules) world.addCascadeRule(rule);
+
+    world.updateProperty(selfData.zhangLawyer.id, "available_hours", 0);
+    // Should cascade to firm
+    const firm = world.getEntity(selfData.firm.id)!;
+    expect(typeof firm.properties.total_available_hours).toBe("number");
   });
 });

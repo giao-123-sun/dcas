@@ -5,3 +5,4 @@ export { legalCascadeRules } from "./cascade-rules.js";
 export { generateLegalStrategies } from "./strategies.js";
 export { createRecoveryPredictor, createCostPredictor } from "./predictions.js";
 export { createLegalObjective } from "./objective.js";
+export { seedLegalSelfModel } from "./self-model.js";

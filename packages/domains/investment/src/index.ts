@@ -4,3 +4,4 @@ export { seedInvestmentData } from "./seed-data.js";
 export { generateInvestmentStrategies } from "./strategies.js";
 export { createSharpePredictor, createDrawdownPredictor } from "./predictions.js";
 export { createInvestmentObjective } from "./objective.js";
+export { seedInvestmentSelfModel } from "./self-model.js";

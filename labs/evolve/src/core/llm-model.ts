@@ -31,6 +31,8 @@ export class CostTracker {
     "openai/gpt-4o-mini": { input: 0.15, output: 0.60 },
     "openai/gpt-4o": { input: 2.50, output: 10.00 },
     "anthropic/claude-sonnet-4": { input: 3.00, output: 15.00 },
+    "openai/gpt-5.4": { input: 2.50, output: 15.00 },
+    "openai/gpt-5.4-20260305": { input: 2.50, output: 15.00 },
   };
 
   record(model: string, promptTokens: number, completionTokens: number, durationMs: number): UsageRecord {

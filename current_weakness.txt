@@ -1,0 +1,127 @@
+---
+  实现走读 + 坦白缺点
+
+  总体数据
+
+  - ~3,840 行源代码，32个源文件
+  - 100 个测试，10个测试套件
+  - 0 个 TODO/FIXME（不是因为没问题，是因为我没写注释直接留了问题在代码里）
+
+  ---
+  L1 World Model（~550行）— 最扎实的一层
+
+  实际实现了什么：一个内存图数据库。5 个 Map/Set 做索引（entities, relations, outgoing, incoming, byType）。增删改查、邻居遍历、级联传播、世界分叉。
+
+  实际缺点：
+
+  1. graph.ts 里多处 ! 非空断言。比如 this.entities.get(id)!——我假设索引和实体是同步的，但如果有 bug 导致索引残留了已删除实体的
+  ID，直接崩。生产环境不该这么写。
+  2. Fork 是全量深拷贝。100 个实体无所谓，1 万个实体时每次 fork 就是复制 1 万份 structuredClone。量化交易那种高频场景完全不可用。应该做
+  Copy-on-Write（只在修改时才复制那个节点），但复杂度高得多，MVP 阶段故意没做。
+  3. 没有事务。一个 cascade 传播到一半出错了，前面已经改了的属性不会回滚。在 demo 场景下无所谓，但如果你要用它做真实决策系统，这是个大坑。
+  4. Cascade visited set 用字符串拼接 entityId:property。理论上如果 entityId 里包含冒号，会产生碰撞。UUID 不含冒号所以当前不会触发，但设计上不够健壮。
+
+  ---
+  L2 Objective Function（~260行）— 够用但粗糙
+
+  实际实现了什么：KPI 归一化 → 加权求和 → 约束检查。硬约束一票否决，软约束记录不归零。Tradeoff 动态调权重。
+
+  实际缺点：
+
+  1. 归一化公式是我拍脑袋写的。没有 target 时用 value / (1 + |value|)，这是个 sigmoid 变体但不是标准做法。不同量纲的 KPI
+  混在一起归一化，数学上未必合理。正经做应该用 min-max 归一化或 z-score，但需要历史数据来定 min/max，MVP 没有历史数据所以用了这个 hack。
+  2. Tradeoff 权重调整是硬编码的 10%。preference * 0.1 意味着最大只能偏移 10% 的权重。这个数字没有理论依据，纯粹是"感觉差不多"。
+  3. KPI 的 compute 是闭包函数。这意味着 ObjectiveSpec 无法序列化——你不能存到数据库里，不能跨进程传递，不能让用户在前端定义 KPI。正经做应该用 DSL
+  或者注册式（"recovery = entity.Case[0].properties.expected_recovery"），但 MVP 阶段闭包最快最灵活。
+
+  ---
+  L3 Prediction Engine（~620行）— 框架不错，模型都是玩具
+
+  实际实现了什么：4 种预测模型 + ensemble + recalibrate。
+
+  坦白说：
+
+  1. HeuristicModel 只是 if-else
+  套了个壳。"证据强度>7就预测7万"——这是写死的规则，不是真正的预测。它的价值在于让领域专家能把直觉编码进系统，但它本身没有学习能力。
+  2. StatisticalModel 就是 y = a + bx 的线性回归。系数是手动写的，不是从数据训练的。你说"线性回归"，其实它连 least squares fit
+  都没实现。它只是一个"手动标定的线性公式"。
+  3. GradientBoostModel 有个 bug：type = "statistical" as const——应该是 "gradient_boost" 或别的唯一标识。当前 type 和 StatisticalModel
+  撞了。不会直接报错，但如果有代码按 model.type 分流逻辑，就会把两种模型混为一谈。
+  4. GradientBoostModel 用了 (this.model as any).estimators——直接 cast 到 any 去访问 ml-random-forest 的内部实现。如果库升级改了内部结构，直接崩。而且
+  predictFromEachTree 里的 catch 静默吞掉了错误，你根本不知道它 fallback 了。
+  5. LLMPredictionModel 的 predict() 是废的。PredictionModel 接口要求 sync 的 predict()，但 LLM 调用是 async。所以 sync 版本直接返回 normalDistribution(0,
+  1, 0.1, this.id)——一个无用的 fallback。真正有用的是 predictAsync()，但 PredictionEngine 的 ensemble() 调的是 sync predict()。也就是说，LLM 模型在
+  ensemble 里永远返回垃圾值。 要真正用上 LLM 预测，必须重构接口为 async。
+  6. Ensemble 的不确定性估计是近似的。加权方差的公式数学上不严谨（把 inter-model disagreement
+  加进去了，但没有考虑模型间的相关性）。置信度惩罚也是拍脑袋的公式。
+  7. recalibrate() 就是 EMA。model.accuracy = accuracy * 0.8 + new * 0.2——永远是 0.8/0.2
+  的权重，没有自适应学习率。如果一个模型突然变差，它需要好几次反馈才能把 accuracy 拉下来。
+
+  ---
+  L4 Simulation & Strategy（~355行）— 核心流程通了，但很脆弱
+
+  实际实现了什么：fork → 逐步执行 actions → cascade → evaluate → 排序。
+
+  实际缺点：
+
+  1. Strategy 的 actions 是预定义的属性赋值列表。"把 expected_recovery 设成
+  65000"——这不是真正的"策略"，这是在直接指定结果。真正的策略应该是"进行和解谈判"，然后系统根据世界模型推理出"和解谈判大概会让 recovery =
+  65000"。当前的设计跳过了这个推理步骤，把结果直接写进了策略定义里。
+  2. 没有对手建模。spec 里写了
+  AdversaryModel，实际完全没实现。策略模拟是单方面的——只模拟我方行动的效果，不模拟对方的反应。在法律博弈、商业谈判等场景里，这是个关键缺失。
+  3. Risk profile 的 fallback 是线性缩放。如果没有预测引擎，bestCase = score×1.2, worstCase = score×0.7。这两个乘数是拍脑袋的。
+  4. LLM 策略生成完全没有验证。Gemini 返回的 JSON 里的 action values 直接用了，没有校验是否合理（比如 expected_recovery 是负数？或者字符串？）。LLM
+  幻觉一个离谱的数字，整个模拟就跑偏了。
+  5. compareStrategies 的推理文本是硬编码中文。"在N个候选策略中综合得分最高"——不可国际化，也不够灵活。
+
+  ---
+  L5 Memory & Learning（~380行）— 形状对了，里面是空的
+
+  坦白说：
+
+  1. DecisionStore 纯内存。进程一关，所有决策历史全没了。这不是"待优化"的问题，这是"根本不能用于任何持续运行的场景"。
+  2. PatternMemory 的相似度判断极其粗暴。用 JSON.stringify(entityTypes.sort()) 比较两个 pattern 是否"相似"——类型完全相同且 observation
+  精确匹配才算重复。稍有差异就创建新 pattern，导致 pattern 库快速膨胀且充满近似重复。
+  3. learnFromOutcome 的阈值全是硬编码。5% 以下算准确，15% 以上算偏差大。这两个数字对法律案件可能合理，对量化交易就太松了（1%
+  都算大偏差）。不同领域应该有不同的阈值，但当前没有配置入口。
+  4. analyzeDecisionHistory 的系统性偏差检测需要 ≥3 条记录。在实际场景中，同一策略可能很久才出现 3 次。而且"70% 同方向偏差"的判断标准也是拍脑袋的。
+  5. 没有遗忘机制。Pattern 只增不减，confidence 只升不降（除非显式处理）。过时的 pattern 会一直留在库里误导系统。
+
+  ---
+  L6 Decision Loop（~205行）— 能跑但粗糙
+
+  1. setInterval 会泄漏。如果调用两次 start() 没先 stop()，第一个 timer 引用丢失，永远无法清理。
+  2. autonomous 模式的自动执行没有真正执行。代码只是把 action.type 设为
+  "auto_execute"，但实际没有修改世界模型。它只是"推荐了一个标记为自动执行的策略"，真正的执行逻辑不存在。
+  3. checkKPIs 在没有 threshold 的 KPI 上直接跳过。如果所有 KPI 都没设 threshold，monitoring 模式永远不会触发，即使世界已经很糟糕了。
+
+  ---
+  MetaClaw 集成（~455行）— 接口漂亮，但没跑通过
+
+  1. 从未和真实 MetaClaw 对接过。所有测试用的是 mock FS。我们不知道 MetaClaw 的实际 Skill 格式是否和我们定义的完全一致。
+  2. translateToSkill 的 LLM 路径没有测试。测试只走了模板路径。如果 Gemini 返回的不是标准四段式格式，validateSkill 会失败，但这个失败路径没有被测试覆盖。
+  3. SkillManager 没有并发安全。两个进程同时写同一个 skill 文件，index.json 会被覆盖。
+
+  ---
+  LLM 集成（~230行）
+
+  1. proxy 支持是假的。fetchWithProxy() 函数的注释说"用户应该设 HTTPS_PROXY 环境变量"，但 Node.js 原生 fetch (undici)
+  不自动读这个环境变量。实际上代理是通过外部 curl 调用绕过的（在 gen-diagrams.mjs 里），而不是代码里原生支持的。
+  2. chatJSON 的 JSON 解析很脆弱。只是 strip 了 markdown fence，如果 LLM 返回 Sure, here's the JSON:\n{...}，就会 parse 失败。
+  3. 没有 rate limiting、没有 token 计费追踪、没有请求日志。生产环境不可用。
+
+  ---
+  整体层面的缺点
+
+  1. Magic numbers 到处都是。至少 20+ 个硬编码的阈值/系数散布在各个文件里（0.05, 0.15, 0.1, 0.8, 0.2, 0.7, 0.4, 0.3, 1.645, 0.674...）。应该集中到一个
+  config 对象里，让不同领域可以自定义。
+  2. 中文硬编码在逻辑代码里。推理链、错误信息、LLM prompt
+  都是中文字符串直接写在代码里。不是不能写中文，但混在逻辑代码里意味着无法国际化、无法让非中文用户使用。
+  3. async/sync 边界没处理好。LLM 相关的函数是 async，但 PredictionModel 接口和 simulator 都是 sync。这导致 LLM 模型在 ensemble
+  和模拟流程中实际上被旁路了。要修复需要把整个预测和模拟链都改成 async，这是个大工程。
+  4. 没有领域包。spec 里说 packages/domains/legal/ 放法律特化的 ontology、预测规则、策略模板。实际上完全没创建。所有法律相关的逻辑都写在测试文件的 fixture
+  里。核心引擎是领域无关的，但没有任何领域的完整实现来证明它真的能用。
+  5. 没有端到端测试。100
+  个测试都是单元测试。没有一个测试是"从构建世界模型到最终输出策略推荐再到记录反馈并学习"的完整链路。各层单独能跑，串起来是否有问题不知道。
+  6. 没有性能基准。不知道 1000 个实体的图 fork 要多久，ensemble 5 个模型的预测要多久，compareStrategies 10
+  个策略要多久。在声称"可以用于实时决策"之前，这些数字必须有。

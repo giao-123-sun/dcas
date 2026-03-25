@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "packages/domains/*"
   - "demos/*"
+  - "labs/*"
 onlyBuiltDependencies:
   - "esbuild"
   - "better-sqlite3"

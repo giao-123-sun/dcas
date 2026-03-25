@@ -10,6 +10,7 @@ export { mathTasks, reasoningTasks, creativeTasks, hleTasks, hleRound2Tasks, all
 export { ralphLoop } from "./frameworks/01-ralph-loop.js";
 export { selfCritique } from "./frameworks/03-self-critique.js";
 export { experienceDistill } from "./frameworks/04-experience-distill.js";
+export { adversarialDistill } from "./frameworks/05-adversarial-distill.js";
 export { twinAdversarial } from "./frameworks/06-twin-adversarial.js";
 export { tournamentEvolution } from "./frameworks/07-tournament.js";
 

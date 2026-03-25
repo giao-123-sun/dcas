@@ -4,12 +4,13 @@
  */
 import { LLMModel, CostTracker } from "./core/llm-model.js";
 import { ContainsEvaluator } from "./core/evaluator.js";
-import { mathTasks, reasoningTasks, hleTasks } from "./benchmarks/tasks.js";
+import { hleRound2Tasks } from "./benchmarks/tasks.js";
 import { ralphLoop } from "./frameworks/01-ralph-loop.js";
 import { selfCritique } from "./frameworks/03-self-critique.js";
 import { experienceDistill } from "./frameworks/04-experience-distill.js";
-import { twinAdversarial } from "./frameworks/06-twin-adversarial.js";
 import { tournamentEvolution } from "./frameworks/07-tournament.js";
+import { critiqueLock } from "./frameworks/09-critique-lock.js";
+import { evolveAnchor } from "./frameworks/10-evolve-anchor.js";
 import type { Task, FrameworkResult } from "./core/types.js";
 
 const apiKey = process.env.OPENROUTER_API_KEY;
@@ -20,13 +21,8 @@ const tracker = new CostTracker();
 const model = new LLMModel(apiKey, "google/gemini-3-flash-preview", undefined, proxy, tracker);
 const evaluator = new ContainsEvaluator();
 
-// Mix of easy + hard (HLE) tasks
-const tasks: Task[] = [
-  mathTasks[2],       // Easy: word problem
-  hleTasks[0],        // Hard: HLE philosophy
-  hleTasks[2],        // Hard: HLE activation functions
-  hleTasks[3],        // Hard: HLE physics (Kaluza-Klein)
-];
+// Round 2: 3 NEW hard HLE questions
+const tasks: Task[] = hleRound2Tasks;
 
 /** Draw an ASCII score curve */
 function drawCurve(history: number[], width = 30): string {
@@ -73,11 +69,13 @@ async function main() {
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
     const frameworks = [
-      { name: "Ralph Loop", fn: () => ralphLoop(task, model, evaluator, { maxRounds: 4 }) },
+      // Original frameworks
       { name: "Self-Critique", fn: () => selfCritique(task, model, evaluator, { maxRounds: 4 }) },
       { name: "Exp Distill", fn: () => experienceDistill([task], model, evaluator, { maxRounds: 3 }) },
-      { name: "Twin Adv", fn: () => twinAdversarial(task, model, evaluator, { maxRounds: 3 }) },
       { name: "Tournament", fn: () => tournamentEvolution(task, model, evaluator, { maxRounds: 3, populationSize: 3, historyPoolSize: 2 }) },
+      // Improved frameworks (v2)
+      { name: "CritiqueLock", fn: () => critiqueLock(task, model, evaluator, { maxRounds: 4 }) },
+      { name: "EvolveAnchor", fn: () => evolveAnchor(task, model, evaluator, { maxRounds: 3, populationSize: 3, historyPoolSize: 2 }) },
     ];
 
     for (const fw of frameworks) {
@@ -108,7 +106,7 @@ async function main() {
   console.log("Framework      │ Avg Best │ Avg Δ  │ Total Calls │ Total Cost");
   console.log("───────────────┼──────────┼────────┼─────────────┼───────────");
 
-  const fws = ["Ralph Loop", "Self-Critique", "Exp Distill", "Twin Adv", "Tournament"];
+  const fws = ["Self-Critique", "Exp Distill", "Tournament", "CritiqueLock", "EvolveAnchor"];
   for (const fw of fws) {
     const rows = summary.filter(s => s.fw === fw);
     const avgBest = rows.reduce((s, r) => s + r.best, 0) / Math.max(rows.length, 1);

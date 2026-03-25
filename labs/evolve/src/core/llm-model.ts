@@ -132,13 +132,13 @@ export class LLMModel implements ModelAdapter {
 
     try {
       const proxyArg = this.proxy ? `-x ${this.proxy}` : "";
-      const result = execSync(
-        `curl -s ${proxyArg} "${this.baseUrl}/chat/completions" ` +
+      const curlCmd =
+        `curl -s --connect-timeout 15 --max-time 45 --retry 2 --retry-delay 3 ` +
+        `${proxyArg} "${this.baseUrl}/chat/completions" ` +
         `-H "Authorization: Bearer ${this.apiKey}" ` +
         `-H "Content-Type: application/json" ` +
-        `-d @${tmpFile.replace(/\\/g, "/")}`,
-        { maxBuffer: 10 * 1024 * 1024, timeout: 60000 },
-      );
+        `-d @${tmpFile.replace(/\\/g, "/")}`;
+      const result = execSync(curlCmd, { maxBuffer: 10 * 1024 * 1024, timeout: 120000 });
 
       const data = JSON.parse(result.toString());
       if (data.error) throw new Error(`LLM API: ${data.error.message}`);

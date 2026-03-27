@@ -65,23 +65,26 @@ One sentence, focus on the METHOD not the specific answer:`
           stratLib.store(task.input, "reflexion_ratchet", reflection, score);
         }
         expStore.add(reflection, "success", 0.7);
-      } else if (task.expectedAnswer) {
+      } else {
+        // IMPORTANT: Do NOT reveal the correct answer in the reflection prompt.
+        // Telling the model "correct: X" would leak the answer into memory,
+        // making subsequent rounds trivial (open-book test, not learning).
         reflection = await model.generate(
-          `You got "${task.input}" wrong. Answered "${content}", correct: "${task.expectedAnswer}".
-What went wrong? What should you CHECK next time for similar problems?
-One sentence, do NOT include the specific answer:`
+          `You attempted "${task.input}" and your answer "${content}" was INCORRECT.
+You do NOT know the correct answer. Based only on the problem structure and your reasoning process:
+What TYPE of mistake might you have made? What should you CHECK next time?
+One sentence, focus on reasoning methodology, not the specific answer:`
         );
         expStore.add(reflection, "failure", 0.5);
-      } else {
-        reflection = "No reflection generated.";
       }
 
       // Store reflection in episodic memory
+      // NOTE: we store "unknown" as actual to prevent answer leakage through memory retrieval
       refMem.add({
         taskId: task.id,
         taskDescription: task.input,
         prediction: content,
-        actual: task.expectedAnswer ?? "unknown",
+        actual: score >= 0.8 ? content : "unknown",  // only store answer if model got it RIGHT
         wasCorrect: score >= 0.8,
         reflection,
       });

@@ -17,3 +17,10 @@ export { tournamentEvolution } from "./frameworks/07-tournament.js";
 // Improved frameworks (v2)
 export { critiqueLock } from "./frameworks/09-critique-lock.js";
 export { evolveAnchor } from "./frameworks/10-evolve-anchor.js";
+
+// Agent-pattern frameworks (v3)
+export { ReflectionMemory } from "./core/reflection-memory.js";
+export type { Reflection } from "./core/reflection-memory.js";
+export { StrategyLibrary } from "./core/strategy-library.js";
+export type { StrategyEntry as LibraryStrategyEntry } from "./core/strategy-library.js";
+export { reflexionRatchet } from "./frameworks/11-reflexion-ratchet.js";

@@ -9,6 +9,9 @@ import { experienceDistill } from "../src/frameworks/04-experience-distill.js";
 import { twinAdversarial } from "../src/frameworks/06-twin-adversarial.js";
 import { tournamentEvolution } from "../src/frameworks/07-tournament.js";
 import type { Task } from "../src/core/types.js";
+import { ReflectionMemory } from "../src/core/reflection-memory.js";
+import { StrategyLibrary } from "../src/core/strategy-library.js";
+import { reflexionRatchet } from "../src/frameworks/11-reflexion-ratchet.js";
 
 const model = new MockModel();
 const exact = new ExactMatchEvaluator();
@@ -84,5 +87,97 @@ describe("Tournament Evolution", () => {
     const r = await tournamentEvolution(addTask, model, contains, { maxRounds: 2, populationSize: 3, historyPoolSize: 2 });
     expect(r.framework).toBe("tournament_evolution");
     expect(r.experiences.length).toBeGreaterThan(0);
+  });
+});
+
+describe("ReflectionMemory", () => {
+  it("should store and retrieve reflections", () => {
+    const mem = new ReflectionMemory();
+    mem.add({
+      taskId: "t1",
+      taskDescription: "What is the capital of France?",
+      prediction: "London",
+      actual: "Paris",
+      wasCorrect: false,
+      reflection: "Check geographical facts carefully.",
+    });
+    expect(mem.count).toBe(1);
+
+    const task = { id: "t2", description: "", input: "What is the capital of Germany?", domain: "reasoning" as const };
+    const results = mem.retrieve(task);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].reflection).toContain("geographical");
+  });
+
+  it("should format for prompt", () => {
+    const mem = new ReflectionMemory();
+    mem.add({
+      taskId: "t1", taskDescription: "math problem about addition",
+      prediction: "5", actual: "7", wasCorrect: false,
+      reflection: "Double-check arithmetic.",
+    });
+    const task = { id: "t2", description: "", input: "another math problem about addition", domain: "math" as const };
+    const prompt = mem.toPromptString(task);
+    expect(prompt).toContain("Double-check");
+    expect(prompt).toContain("Past experiences");
+  });
+});
+
+describe("StrategyLibrary", () => {
+  it("should store and retrieve strategies", () => {
+    const lib = new StrategyLibrary();
+    lib.store("math problem", "test", "Break into steps", 0.9);
+    lib.store("logic puzzle", "test", "Use elimination", 0.8);
+    expect(lib.count).toBe(2);
+
+    const results = lib.retrieve("math problem with steps");
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it("should deduplicate and update uses", () => {
+    const lib = new StrategyLibrary();
+    lib.store("task", "fw", "Same strategy", 0.7);
+    lib.store("task", "fw", "Same strategy", 0.9);
+    expect(lib.count).toBe(1);
+    expect(lib.getTop(1)[0].uses).toBe(2);
+    expect(lib.getTop(1)[0].score).toBe(0.9);
+  });
+});
+
+describe("Reflexion Ratchet", () => {
+  it("should run and accumulate reflections", async () => {
+    const results = await reflexionRatchet(
+      [addTask],
+      model,
+      contains,
+      { maxRounds: 2 },
+    );
+    expect(results.length).toBe(2); // 1 task × 2 rounds
+    expect(results[0].framework).toBe("reflexion_ratchet");
+  });
+
+  it("should maintain ratchet (never regress)", async () => {
+    const refMem = new ReflectionMemory();
+    const stratLib = new StrategyLibrary();
+
+    const results = await reflexionRatchet(
+      [addTask],
+      model,
+      contains,
+      { maxRounds: 3 },
+      refMem,
+      stratLib,
+    );
+
+    // Best solution should be monotonically non-decreasing
+    let maxSoFar = 0;
+    for (const r of results) {
+      const score = r.bestSolution.score ?? 0;
+      expect(score).toBeGreaterThanOrEqual(maxSoFar);
+      maxSoFar = Math.max(maxSoFar, score);
+    }
+
+    // Should have accumulated reflections
+    expect(refMem.count).toBeGreaterThan(0);
   });
 });
